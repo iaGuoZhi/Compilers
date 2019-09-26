@@ -69,16 +69,16 @@ int main(int argc, char **argv) {
   errormsg.Reset(fname, infile);
 
   Scanner scanner(infile);
-
   while (int tok = scanner.lex()) {
     switch (tok) {
       case Parser::ID:
       case Parser::STRING:
         printf("%10s %4d %s\n", tokname[tok].c_str(), errormsg.tokPos,
-               scanner.matched() != "" ? scanner.matched().c_str() : "(null)");
+              scanner.matched() != "" ? scanner.matched().c_str() : "(null)");
         break;
       case Parser::INT:
         printf("%10s %4d %d\n", tokname[tok].c_str(), errormsg.tokPos,
+              
                std::stoi(scanner.matched()));
         break;
       default:

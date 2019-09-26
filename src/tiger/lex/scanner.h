@@ -10,6 +10,7 @@
 
 extern EM::ErrorMsg errormsg;
 
+
 class Scanner : public ScannerBase {
  public:
   explicit Scanner(std::istream &in = std::cin, std::ostream &out = std::cout);
@@ -17,6 +18,8 @@ class Scanner : public ScannerBase {
   Scanner(std::string const &infile, std::string const &outfile);
 
   int lex();
+
+  
 
  private:
   int lex__();
@@ -26,11 +29,17 @@ class Scanner : public ScannerBase {
   void preCode();
   void postCode(PostEnum__ type);
   void adjust();
+  void back();
+  void forward();
   void adjustStr();
+  void commentPlus();
+  void commentCut();
 
   int commentLevel_;
   std::string stringBuf_;
   int charPos_;
+  int comment_count=0;
+  
 };
 
 inline Scanner::Scanner(std::istream &in, std::ostream &out)
@@ -56,7 +65,27 @@ inline void Scanner::adjust() {
   charPos_ += length();
 }
 
+inline void Scanner::back(){
+  charPos_-=1;
+}
+
+inline void Scanner::forward(){
+  charPos_+=1;
+}
+
+
 inline void Scanner::adjustStr() { charPos_ += length(); }
+
+inline void Scanner::commentPlus(){
+  comment_count++;
+}
+
+inline void Scanner::commentCut(){
+  comment_count--;
+}
+
+
+
 
 #endif  // TIGER_LEX_SCANNER_H_
 
