@@ -9,7 +9,6 @@ digit [0-9]
 letter [a-z]|[A-Z]
 id {letter}({letter}|{digit}|_)*
 int {digit}+
-
 %x COMMENT STR 
 %%
 
