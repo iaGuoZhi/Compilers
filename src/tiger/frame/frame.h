@@ -8,13 +8,12 @@
 #include "tiger/util/util.h"
 
 namespace F {
+const int wordSize=8;
 
-class Frame {
-  // Base class
-};
-
+//描述那些可以存放在栈中或寄存器的形式参数和局部变量
 class Access {
  public:
+  // INFRAM 指出一个相对帧指针偏移为X的存储位置，INREG指出将使用的寄存器
   enum Kind { INFRAME, INREG };
 
   Kind kind;
@@ -23,16 +22,38 @@ class Access {
 
   // Hints: You may add interface like
   //        `virtual T::Exp* ToExp(T::Exp* framePtr) const = 0`
+  //virtual T::Exp* ToExp(T::Exp* framePtr) const=0;
 };
+
+//F_formals接口函数抽取由k个“访问”组成的一张表
+
 
 class AccessList {
  public:
   Access *head;
   AccessList *tail;
-
   AccessList(Access *head, AccessList *tail) : head(head), tail(tail) {}
 };
 
+
+//表示有关形式参数和分配在栈帧中局部变量的信息
+/*
+  *F_frame是一个包含以下内容的数据结构：
+  * 1.所有形式参数的位置
+  * 2.实现“view shift”所需要的指令
+  * 3.迄今为止已分配的栈帧大小
+  * 4.该函数开始点的机器代码指令
+  * */
+class Frame {
+  // Base class
+  public:
+  class AccessList *formal;
+  TEMP::Label *label;
+  int size;  // used in F::allocLocal
+  Frame(AccessList *formal,TEMP::Label *label,int size);
+  class AccessList *getFormals();
+  TEMP::Label *getLabel();
+};
 /*
  * Fragments
  */
@@ -70,6 +91,27 @@ class FragList {
 
   FragList(Frag *head, FragList *tail) : head(head), tail(tail) {}
 };
+
+
+F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist);
+
+
+//return content of Frame
+class AccessList *getFormals(Frame *frame);
+TEMP::Label getName(Frame *frame);
+
+Access *allocLocal(Frame *frame,bool escape);
+T::Exp *Exp(Access *access,T::Exp *fp);
+
+TEMP::Temp *SP(void);
+TEMP::Temp *FP(void);
+TEMP::Temp *RV(void);
+TEMP::Temp *Zero(void);
+
+T::Exp *externalCall(std::string s,T::ExpList *args);
+//T::Stm F_procEntryExit1(F::frame frame, T::stm stm);
+//AS::InstrList F_procEntryExit2(F::frame frame, AS::InstrList body);
+//AS::Proc F_procEntryExit3(F::frame frame, AS::InstrList body);
 
 }  // namespace F
 

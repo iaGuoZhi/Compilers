@@ -423,7 +423,7 @@ class Dec {
                              TEMP::Label *label) const = 0;
 };
 
-class FunctionDec : public Dec {
+class  FunctionDec : public Dec {
  public:
   FunDecList *functions;
 

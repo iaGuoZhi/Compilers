@@ -3,6 +3,7 @@
 
 #include "tiger/absyn/absyn.h"
 #include "tiger/frame/frame.h"
+// translate为semant管理着局部变量和静态函数嵌套
 
 /* Forward Declarations */
 namespace A {
@@ -14,6 +15,9 @@ namespace TR {
 class Exp;
 class ExpAndTy;
 class Level;
+class Access;
+class AccessList;
+class Cx;
 
 Level* Outermost();
 

@@ -6,12 +6,16 @@
 namespace TEMP {
 
 using Label = S::Symbol;
+//从标号的无穷集合中返回一个新的标号，在处理声明function f(...)中，通过调用Newlabel可生成
+//f的机器代码地址的标号
 Label *NewLabel();
+//返回一个汇编名为name的新标号
 Label *NamedLabel(std::string name);
 const std::string &LabelString(Label *s);
 
 class Temp {
  public:
+  //从临时变量的无穷集合中返回一个新的临时变量
   static Temp *NewTemp();
   int Int();
 

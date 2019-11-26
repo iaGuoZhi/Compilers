@@ -8,7 +8,7 @@ using VEnvType = S::Table<E::EnvEntry> *;
 using TEnvType = S::Table<TY::Ty> *;
 
 namespace {
-static TY::TyList *make_formal_tylist(TEnvType tenv, A::FieldList *params) {
+   static TY::TyList *make_formal_tylist(TEnvType tenv, A::FieldList *params) {
   if (params == nullptr) {
     return nullptr;
   }
@@ -22,7 +22,7 @@ static TY::TyList *make_formal_tylist(TEnvType tenv, A::FieldList *params) {
   return new TY::TyList(ty->ActualTy(), make_formal_tylist(tenv, params->tail));
 }
 
-static TY::FieldList *make_fieldlist(TEnvType tenv, A::FieldList *fields) {
+  static  TY::FieldList *make_fieldlist(TEnvType tenv, A::FieldList *fields) {
   if (fields == nullptr) {
     return nullptr;
   }
@@ -66,7 +66,7 @@ TY::Ty *FieldVar::SemAnalyze(VEnvType venv, TEnvType tenv,
   }
   TY::RecordTy *recordty=(TY::RecordTy *)varty;
   TY::FieldList *recordfields=recordty->fields;
-  for(recordfields,recordfields;recordfields=recordfields->tail;)
+  for(recordfields;recordfields;recordfields=recordfields->tail)
   {
     if(!recordfields->head->name->Name().compare(sym->Name()))
     {

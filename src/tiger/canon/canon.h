@@ -8,7 +8,7 @@
 
 /* Forward Declarations */
 namespace T {
-class StmList;
+class StmList; 
 class Exp;
 class Stm;
 }  // namespace T

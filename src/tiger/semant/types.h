@@ -3,7 +3,7 @@
 
 #include "tiger/symbol/symbol.h"
 
-namespace TY {
+namespace   TY {
 
 class TyList;
 class Field;
