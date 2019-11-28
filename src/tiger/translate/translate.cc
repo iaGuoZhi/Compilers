@@ -808,7 +808,7 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     tylist = make_formal_tylist(tenv, funDec->params);
     if (venv->Look(funDec->name)) {
       //errormsg.Error(pos, "two functions have the same name");
-      assert(0);
+      //assert(0);
     }
     else {
       TEMP::Label *new_lebel=TEMP::NewLabel();

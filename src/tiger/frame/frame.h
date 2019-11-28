@@ -6,9 +6,18 @@
 #include "tiger/codegen/assem.h"
 #include "tiger/translate/tree.h"
 #include "tiger/util/util.h"
+namespace AS{
+  class Proc;
+  class InstrList;
+}
 
+namespace F{
+  class AccessList;
+  class Access;
+}
 namespace F {
 const int wordSize=8;
+
 
 //描述那些可以存放在栈中或寄存器的形式参数和局部变量
 class Access {
@@ -95,7 +104,6 @@ class FragList {
 
 F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist);
 
-
 //return content of Frame
 class AccessList *getFormals(Frame *frame);
 TEMP::Label getName(Frame *frame);
@@ -108,10 +116,22 @@ TEMP::Temp *FP(void);
 TEMP::Temp *RV(void);
 TEMP::Temp *Zero(void);
 
+TEMP::TempList specialRegs(void);
+TEMP::Temp Arg(int index);
+TEMP::TempList *Argregs(void);
+TEMP::TempList *Calleesaves(void);
+TEMP::TempList *Callersaves(void);
+TEMP::TempList *registers(void);
+
+
+static TEMP::Map *frameMap;
+void InitTempMap();
+
 T::Exp *externalCall(std::string s,T::ExpList *args);
-//T::Stm F_procEntryExit1(F::frame frame, T::stm stm);
-//AS::InstrList F_procEntryExit2(F::frame frame, AS::InstrList body);
-//AS::Proc F_procEntryExit3(F::frame frame, AS::InstrList body);
+T::Stm *procEntryExit1(F::Frame *frame,T::Stm *stm);
+AS::InstrList *procEntryExit2(AS::InstrList *body);
+AS::Proc *procEntryExit3(F::Frame *frame,AS::InstrList *body);
+
 
 }  // namespace F
 
