@@ -91,7 +91,8 @@ class Level {
     {
       //fprintf(stderr,"begin formals\n");
       assert(currentLevel->frame);
-      fp=new T::MemExp(new T::BinopExp(T::PLUS_OP,new T::ConstExp(F::wordSize),fp));
+     // fp=new T::MemExp(new T::BinopExp(T::PLUS_OP,new T::ConstExp(F::wordSize),fp));
+      fp=F::Exp(currentLevel->frame->getFormals()->head,fp);
       assert(currentLevel->parent);
       currentLevel=currentLevel->parent;
     }

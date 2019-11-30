@@ -54,6 +54,7 @@ namespace F {
       F::InFrameAccess *frame_access=(F::InFrameAccess*)access;
       fprintf(stderr,"%d\n",frame_access->offset);
       assert(fp);
+      //assert(((F::InFrameAccess*)access)->offset<100);
       return new T::MemExp(new T::BinopExp(
         T::PLUS_OP,fp,new T::ConstExp(((F::InFrameAccess*)access)->offset)
       ));
@@ -71,7 +72,7 @@ namespace F {
 
   F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist)
   {
-    F::Frame *new_frame=new F::Frame(new AccessList(nullptr,nullptr),name,12);
+    /*F::Frame *new_frame=new F::Frame(new AccessList(nullptr,nullptr),name,12);
     F::AccessList *tail=new_frame->formal;
     int count=0;
     for(;boollist;boollist=boollist->tail)
@@ -80,8 +81,9 @@ namespace F {
       Access *new_access;
       if(escape){
         ++count;
-        new_access=new InFrameAccess((1+count)*wordSize);
+        new_access=new InFrameAccess((p1+count)*wordSize);
       }else{
+        assert(0);
         new_access=new InRegAccess(TEMP::Temp::NewTemp());
       }
       tail->tail=new AccessList(new_access,nullptr);
@@ -89,17 +91,20 @@ namespace F {
     }
     new_frame->formal=new_frame->formal->tail;
     //F::Frame *new_frame=new F::Frame(makeFormals(boollist,wordSize),name,0);
-    return new_frame;
+    return new_frame;*/
+    AccessList *formals=makeFormals(boollist,8);
+    F::Frame *new_frame=new F::Frame(formals,name,0);
   }
 
   Access *allocLocal(Frame *frame,bool escape)
   {
     int offset;
-    TEMP::Temp *tempReg;
-    if(escape==true)
+    TEMP::Temp *tempReg=TEMP::Temp::NewTemp();
+    if(escape==true)  
     {
       frame->size++;
-      offset=frame->size*wordSize;
+      assert(wordSize==8);
+      offset=-(frame->size*wordSize);
       return new InFrameAccess(offset);
     }
     else{

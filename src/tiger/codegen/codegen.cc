@@ -30,9 +30,30 @@ static void emit(AS::Instr *inst)
 
 AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
   // TODO: Put your codes here (lab6).
-  AS::InstrList *list=nullptr;
-  T::StmList *sl;
-  return nullptr;
+  AS::InstrList *instrlist;
+  T::StmList *stmlist=stmList;
+  //fprintf(stdout,"------------code generation-----------\n");
+  //save callee saved registers
+  TEMP::Temp *rbx=TEMP::Temp::NewTemp();
+  TEMP::Temp *rsi=TEMP::Temp::NewTemp();
+  TEMP::Temp *rdi=TEMP::Temp::NewTemp();
+
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rbx,nullptr),new TEMP::TempList(F::RBX(),nullptr)));
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rsi,nullptr),new TEMP::TempList(F::RSI(),nullptr)));
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rdi,nullptr),new TEMP::TempList(F::RDI(),nullptr)));
+
+  for(stmlist;stmlist;stmlist=stmlist->tail)
+  {
+    munchStm(stmlist->head);
+  }
+
+  //restore callee saved registers
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RBX(),nullptr),new TEMP::TempList(rbx,nullptr)));
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RSI(),nullptr),new TEMP::TempList(rsi,nullptr)));
+  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RDI(),nullptr),new TEMP::TempList(rdi,nullptr)));
+
+  instrlist=iList;
+  return instrlist;
 }
 
 static void munchStm(T::Stm *stm)
@@ -44,6 +65,7 @@ static void munchStm(T::Stm *stm)
   {
   case T::Stm::MOVE:
   {
+    
     T::MoveStm *moveStm=(T::MoveStm*)stm;
     T::Exp *dst=moveStm->dst;
     T::Exp *src=moveStm->src;
@@ -53,7 +75,7 @@ static void munchStm(T::Stm *stm)
     {
       TEMP::Temp *e2=munchExp(src);
       T::TempExp *dsttempexp=(T::TempExp*) dst;
-      assm="movq `s0, `d0";
+      assm="movq$ `s0, `d0";
       emit(new AS::MoveInstr(assm,new TEMP::TempList(dsttempexp->temp,nullptr)
         ,new TEMP::TempList(e2,nullptr)));
       return;
@@ -61,18 +83,22 @@ static void munchStm(T::Stm *stm)
     //move src,mem
     if(dst->kind==T::Exp::MEM)
     {
+      //fprintf(stdout,"-----------movestm------------\n");
       TEMP::Temp *srctemp=munchExp(src);
       T::MemExp *memexp=(T::MemExp*) dst;
       TEMP::Temp *memtemp=munchExp(memexp->exp);
       
-      assm="movq `s0,(`s1)";
+      assm="movq `s0, (`s1)";
       emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(srctemp,
         new TEMP::TempList(memtemp,nullptr)),new AS::Targets(nullptr)));
       return;
     } 
+    assert(0);
+    return ;
   }
   case T::Stm::JUMP:
   {
+    //fprintf(stdout,"------------------jump stm------------\n");
     T::JumpStm *jumpstm=(T::JumpStm*) stm;
     TEMP::LabelList *jumplist=jumpstm->jumps;
     TEMP::Label *label=jumpstm->exp->name;
@@ -83,13 +109,14 @@ static void munchStm(T::Stm *stm)
   }
   case T::Stm::CJUMP:
   {
+    //fprintf(stdout,"-----------------cjump stm--------------\n");
     T::CjumpStm *cjumpstm=(T::CjumpStm *)stm;
     TEMP::Temp *left=munchExp(cjumpstm->left);
     TEMP::Temp *right=munchExp(cjumpstm->right);
     TEMP::Label *trues=cjumpstm->true_label;
     TEMP::Label *falses=cjumpstm->false_label;
 
-    assm="cmp `s0,`s1";
+    assm="cmp `s0, `s1";
     emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(right,
       new TEMP::TempList(left,nullptr)),nullptr));
 
@@ -110,11 +137,12 @@ static void munchStm(T::Stm *stm)
     assm+=TEMP::LabelString(trues);
     //
     emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(
-      new TEMP::LabelList(trues,new TEMP::LabelList(trues,nullptr)))));
+      new TEMP::LabelList(trues,nullptr))));
     return;
   }
   case T::Stm::LABEL:
   {
+    //fprintf(stdout,"-----------------label stm--------------\n");
     T::LabelStm *labelstm=(T::LabelStm *)stm;
     assm=TEMP::LabelString(labelstm->label);
     assm+=":";
@@ -123,12 +151,14 @@ static void munchStm(T::Stm *stm)
   }
   case T::Stm::EXP:
   {
+    //fprintf(stdout,"-----------------exp stm--------------\n");
     T::ExpStm *expstm=(T::ExpStm *) stm;
     T::Exp *exp=expstm->exp;
     munchExp(exp);
     return;
   }
   default:
+  assert(0);
     break;
   }
 }
@@ -137,7 +167,8 @@ static void munchArgs(T::ExpList *explist)
 {
   if (explist)
   {
-    TEMP::Temp *temp;
+    //fprintf(stdout,"-----------------munchArgs--------------\n");
+    TEMP::Temp *temp=TEMP::Temp::NewTemp();
     munchArgs(explist->tail);
     temp=munchExp(explist->head);
     emit(new AS::OperInstr("pushl `s0",nullptr,new TEMP::TempList(temp,nullptr),new AS::Targets(nullptr)));
@@ -153,15 +184,18 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   //movq mem,dst
   case T::Exp::MEM:
   {
+    //fprintf(stdout,"-----------------mem exp--------------\n");
     T::MemExp *memexp=(T::MemExp*) exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
-    TEMP::Temp *memtmp=munchExp(memexp);
+    TEMP::Temp *memtmp=munchExp(memexp->exp);
     assm="movq (`s0), `d0";
     emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
     new TEMP::TempList(memtmp,nullptr), new AS::Targets(nullptr)));
+    return temp;
   }
   case T::Exp::BINOP:
   {
+    //fprintf(stdout,"-----------------binop exp--------------\n");
     T::BinopExp *binopexp=(T::BinopExp*) exp;
     //movq left,dst
     //addq right dst
@@ -226,6 +260,7 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   //CONST(i)
   case T::Exp::CONST:
   {
+    //fprintf(stdout,"-----------------const exp--------------\n");
       T::ConstExp *constexp=(T::ConstExp*) exp;
       TEMP::Temp *temp=TEMP::Temp::NewTemp();
       sprintf(inst,"movq $%d, `d0",constexp->consti);
@@ -237,11 +272,13 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   //TEMP(t)
   case T::Exp::TEMP:
   {
+    //fprintf(stdout,"-----------------temp exp--------------\n");
     T::TempExp *tempexp=(T::TempExp*) exp;
     return tempexp->temp;
   }
   case T::Exp::NAME:
   {
+    //fprintf(stdout,"-----------------name exp--------------\n");
     T::NameExp *nameexp=(T::NameExp*) exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
     sprintf(inst,"movq $%s, `d0",TEMP::LabelString(nameexp->name));
@@ -252,13 +289,16 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   //
   case T::Exp::ESEQ:
   {
+    /*//fprintf(stdout,"-----------------eseq exp--------------\n");
     T::EseqExp *eseqexp=(T::EseqExp *)exp;
     munchStm(eseqexp->stm);
-    return munchExp(eseqexp->exp);
+    return munchExp(eseqexp->exp);*/
+    return nullptr;
   }
 
   case T::Exp::CALL:
   {
+    //fprintf(stdout,"-----------------call exp--------------\n");
     T::CallExp *callexp=(T::CallExp *)exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
     munchArgs(callexp->args);

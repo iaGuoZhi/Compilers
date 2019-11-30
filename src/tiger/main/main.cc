@@ -27,9 +27,9 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   // Init temp_map
 
   //tree print
-  /*printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
+  printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
   (new T::StmList(procFrag->body,nullptr))->Print(stdout);
-  printf("-------====IR tree=====-----\n");*/
+  printf("-------====IR tree=====-----\n");
    // printf("doProc for function %s:\n", this->frame->label->Name().c_str());
   //  (new T::StmList(proc->body, nullptr))->Print(stdout);
   //  printf("-------====IR tree=====-----\n");
@@ -44,6 +44,7 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   // 	printf("------====Basic block=====-------\n");
   //  }
   stmList = C::TraceSchedule(blo);
+  stmList->Print(stdout);
   //  stmList->Print(stdout);
   //  printf("-------====trace=====-----\n");
 
@@ -51,7 +52,6 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   //assert(0);
   AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
   iList->Print(stdout,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
-  assert(0);
   //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
 
   // lab6: register allocation
