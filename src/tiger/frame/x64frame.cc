@@ -491,6 +491,6 @@ namespace F {
   T::Exp *externalCall(std::string s,T::ExpList *args)
   {
     return new T::CallExp(new T::NameExp(TEMP::NamedLabel(s)),
-      new T::ExpList(new T::ConstExp(0),args));
+      args);
   }
 }  // namespace F

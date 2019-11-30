@@ -47,92 +47,37 @@ static void munchStm(T::Stm *stm)
     T::MoveStm *moveStm=(T::MoveStm*)stm;
     T::Exp *dst=moveStm->dst;
     T::Exp *src=moveStm->src;
-    if(dst->kind==T::Exp::MEM)
-    {
-      T::MemExp *memDstExp=(T::MemExp *)dst;
-      if(memDstExp->exp->kind==T::Exp::BINOP)
-      {
-        T::BinopExp *binopExp=(T::BinopExp *)memDstExp->exp;
-        //MOVE(MEM(BINOP(PLUS,e1,CONST(i))),e2)
-        if(binopExp->op==T::PLUS_OP&&binopExp->right->kind==T::Exp::CONST)
-        {
-          TEMP::Temp *temp=TEMP::Temp::NewTemp();
-          TEMP::Temp *lefttemp=munchExp(binopExp->left);
-          T::ConstExp *rightconstexp=(T::ConstExp *)binopExp->right;
-          TEMP::Temp *srctemp=munchExp(src);
-         
-          sprintf(inst,"movq `s0, %d(`s1)",rightconstexp->consti);
-          assm=std::string(inst);
-          emit(new AS::OperInstr(assm,nullptr,
-            new TEMP::TempList(lefttemp,new TEMP::TempList(srctemp,nullptr)),nullptr));
-          return;
-        }
-        //MOVE(MEM(BINOP(PLUS,CONST(i),e1)),e2)
-        if(binopExp->op==T::PLUS_OP&&binopExp->left->kind==T::Exp::CONST)
-        {
-          TEMP::Temp *temp=TEMP::Temp::NewTemp();
-          TEMP::Temp *righttemp=munchExp(binopExp->right);
-          TEMP::Temp *srctemp=munchExp(src);
-          assm=" movq `s1, ";
-          emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-            new TEMP::TempList(righttemp,new TEMP::TempList(srctemp,nullptr)),nullptr));
-          return;
-        }
-      }
-    }
-    if(src->kind==T::Exp::MEM)
-    {
-      //MOVE(MEM(e1), MEM(e2))
-      T::MemExp *srcMem=(T::MemExp *)src;
-      T::MemExp *dstMem=(T::MemExp*)dst;
-      TEMP::Temp *srctemp=munchExp(srcMem);
-      TEMP::Temp *dsttemp=munchExp(dstMem);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      assm="mov";
-      emit(new AS::OperInstr(assm,nullptr,
-            new TEMP::TempList(dsttemp,new TEMP::TempList(srctemp,nullptr)),nullptr));
-      return;
-    }
-    if(dst->kind==T::Exp::MEM)
-    {
-      T::MemExp *dstMem=(T::MemExp*) dst;
-      //MOVE(MEM(CONST(i)), e2)
-      if(dstMem->exp->kind==T::Exp::CONST)
-      {
-        TEMP::Temp *srctemp=munchExp(src);
-        assm=" ";
-        emit(new AS::OperInstr(assm,nullptr,
-            new TEMP::TempList(srctemp,nullptr),nullptr));
-        return;
-      }
-      else{
-        //MOVE(MEM(e1), e2)
-        TEMP::Temp *e2=munchExp(src);
-        TEMP::Temp *e1=munchExp(dstMem);
-        assm=" ";
-         emit(new AS::OperInstr(assm,nullptr,
-            new TEMP::TempList(e1,new TEMP::TempList(e2,nullptr)),nullptr));
-       return;
-      }
-    }
-    else if(dst->kind==T::Exp::TEMP)
+    
+    //move src, dst
+    if(dst->kind==T::Exp::TEMP)
     {
       TEMP::Temp *e2=munchExp(src);
       T::TempExp *dsttempexp=(T::TempExp*) dst;
-      assm="";
+      assm="movq `s0, `d0";
       emit(new AS::MoveInstr(assm,new TEMP::TempList(dsttempexp->temp,nullptr)
         ,new TEMP::TempList(e2,nullptr)));
       return;
     }
-    break;
-  
-  
+    //move src,mem
+    if(dst->kind==T::Exp::MEM)
+    {
+      TEMP::Temp *srctemp=munchExp(src);
+      T::MemExp *memexp=(T::MemExp*) dst;
+      TEMP::Temp *memtemp=munchExp(memexp->exp);
+      
+      assm="movq `s0,(`s1)";
+      emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(srctemp,
+        new TEMP::TempList(memtemp,nullptr)),new AS::Targets(nullptr)));
+      return;
+    } 
   }
   case T::Stm::JUMP:
   {
     T::JumpStm *jumpstm=(T::JumpStm*) stm;
     TEMP::LabelList *jumplist=jumpstm->jumps;
-    assm="";
+    TEMP::Label *label=jumpstm->exp->name;
+    sprintf(inst,"jmp %s",TEMP::LabelString(label));
+    assm=std::string(inst);
     emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(jumplist)));
     return ;
   }
@@ -144,9 +89,9 @@ static void munchStm(T::Stm *stm)
     TEMP::Label *trues=cjumpstm->true_label;
     TEMP::Label *falses=cjumpstm->false_label;
 
-    assm="";
-    emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(left,
-      new TEMP::TempList(right,nullptr)),nullptr));
+    assm="cmp `s0,`s1";
+    emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(right,
+      new TEMP::TempList(left,nullptr)),nullptr));
 
     switch(cjumpstm->op)
     {
@@ -161,122 +106,132 @@ static void munchStm(T::Stm *stm)
       case T::ULE_OP: assm="jbe"; break;
       case T::UGE_OP: assm="jae"; break;
     }
-
+    assm+=" ";
+    assm+=TEMP::LabelString(trues);
     //
     emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(
-      new TEMP::LabelList(trues,new TEMP::LabelList(falses,nullptr)))));
+      new TEMP::LabelList(trues,new TEMP::LabelList(trues,nullptr)))));
     return;
   }
   case T::Stm::LABEL:
   {
     T::LabelStm *labelstm=(T::LabelStm *)stm;
-    emit(new AS::LabelInstr(TEMP::LabelString(labelstm->label),labelstm->label));
-    break;
+    assm=TEMP::LabelString(labelstm->label);
+    assm+=":";
+    emit(new AS::LabelInstr(assm,labelstm->label));
+    return;
+  }
+  case T::Stm::EXP:
+  {
+    T::ExpStm *expstm=(T::ExpStm *) stm;
+    T::Exp *exp=expstm->exp;
+    munchExp(exp);
+    return;
   }
   default:
     break;
   }
 }
 
+static void munchArgs(T::ExpList *explist)
+{
+  if (explist)
+  {
+    TEMP::Temp *temp;
+    munchArgs(explist->tail);
+    temp=munchExp(explist->head);
+    emit(new AS::OperInstr("pushl `s0",nullptr,new TEMP::TempList(temp,nullptr),new AS::Targets(nullptr)));
+  }
+}
+
 static TEMP::Temp *munchExp(T::Exp *exp)
 {
   std::string assm;
+  char inst[MAX_INST_LEN];
   switch (exp->kind)
   {
+  //movq mem,dst
   case T::Exp::MEM:
   {
     T::MemExp *memexp=(T::MemExp*) exp;
-    if(memexp->exp->kind==T::Exp::BINOP)
-    {
-      T::BinopExp *binopexp=(T::BinopExp*) memexp;
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      //MEM(BINOP(PLUS,e1,CONST(i)))
-      if(binopexp->op==T::PLUS_OP&& binopexp->right->kind==T::Exp::CONST)
-      {
-        T::Exp *e1=binopexp->left;
-        TEMP::Temp *e1munch=munchExp(e1);
-        assm="mov ";
-        emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(e1munch,nullptr),nullptr));
-        return temp;
-      }
-      //MEM(BINOP(PLUS,CONST(i),e1))
-      if(binopexp->op==T::PLUS_OP&&binopexp->left->kind==T::Exp::CONST)
-      {
-        T::Exp *e1=binopexp->right;
-        TEMP::Temp *e1munch=munchExp(e1);
-        assm="mov ";
-        emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(e1munch,nullptr),nullptr));
-        return temp;
-      }
-    }
-    //MEM(CONST(i))
-    if(memexp->exp->kind==T::Exp::CONST)
-    {
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      T::ConstExp *constexp=(T::ConstExp *)memexp->exp;
-      //assm=constexp->consti;
-      emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),nullptr,nullptr));
-      return temp;
-    }
-    else{
-      //MEM(e1)
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      TEMP::Temp *munche1=munchExp(exp);
-      emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(munche1,nullptr),nullptr));
-      return temp;
-    }
-    break;
+    TEMP::Temp *temp=TEMP::Temp::NewTemp();
+    TEMP::Temp *memtmp=munchExp(memexp);
+    assm="movq (`s0), `d0";
+    emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
+    new TEMP::TempList(memtmp,nullptr), new AS::Targets(nullptr)));
   }
   case T::Exp::BINOP:
   {
     T::BinopExp *binopexp=(T::BinopExp*) exp;
-    //BINOP(PLUS,e1,CONST(i))
-    if(binopexp->op==T::PLUS_OP&&binopexp->right->kind==T::Exp::CONST);
-    {
-      T::Exp *e1=binopexp->left;
-      TEMP::Temp *e1munch=munchExp(e1);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      assm="";
-      emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(e1munch,nullptr),nullptr));
-      return temp;
-    }
-    //BINOP(PLUS,CONST(i),e1)
-    if(binopexp->op==T::PLUS_OP&&binopexp->left->kind==T::Exp::CONST)
-    {
-      T::Exp *e1=binopexp->right;
-      TEMP::Temp *e1munch=munchExp(e1);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      assm="mov ";
-      emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-      new TEMP::TempList(e1munch,nullptr),nullptr));
-      return temp;
-    }
-    //BINOP(PLUS,e1,e2)
+    //movq left,dst
+    //addq right dst
     if(binopexp->op==T::PLUS_OP)
     {
+      TEMP::Temp *left=munchExp(binopexp->left);
+      TEMP::Temp *right=munchExp(binopexp->right);
       TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      T::Exp *e1=binopexp->left;
-      T::Exp *e2=binopexp->right;
-      TEMP::Temp *e1munch=munchExp(binopexp->left);
-      TEMP::Temp *e2munch=munchExp(binopexp->right);
-      assm=" ";
-      emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(e1munch,
-        new TEMP::TempList(e2munch,nullptr)),nullptr));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(left,nullptr)));
+      emit(new AS::OperInstr("addq `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
       return temp;
     }
-  
-  
+    //movq left,dst
+    //subq right,dst
+    if(binopexp->op==T::MINUS_OP)
+    {
+      TEMP::Temp *left=munchExp(binopexp->left);
+      TEMP::Temp *right=munchExp(binopexp->right);
+      TEMP::Temp *temp=TEMP::Temp::NewTemp();
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(left,nullptr)));
+      emit(new AS::OperInstr("subq `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
+      return temp;
+    }
+
+    //movq left,dst
+    //imul right,dst
+    if(binopexp->op==T::MUL_OP)
+    {
+      TEMP::Temp *left=munchExp(binopexp->left);
+      TEMP::Temp *right=munchExp(binopexp->right);
+      TEMP::Temp *temp=TEMP::Temp::NewTemp();
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(left,nullptr)));
+      emit(new AS::OperInstr("imul `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
+      return temp;
+    }
+
+     //movq left,%rax
+     //cltd #use rax's sign bit to fill rdx
+     //idivl right 
+    if(binopexp->op==T::DIV_OP)
+    {
+      TEMP::Temp *left=munchExp(binopexp->left);
+      TEMP::Temp *right=munchExp(binopexp->right);
+      TEMP::Temp *temp=TEMP::Temp::NewTemp();
+      emit(new AS::MoveInstr("movl `s0, `d0",new TEMP::TempList(F::RAX(),nullptr),new TEMP::TempList(left,nullptr)));
+      emit(new AS::OperInstr("cltd",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))
+      ,new TEMP::TempList(F::RAX(),nullptr), new AS::Targets(nullptr)));
+      emit(new AS::OperInstr("idivl `s0",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr)),
+        new TEMP::TempList(right,new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))),
+          new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movl `s0, `d0",new TEMP::TempList(temp,nullptr),
+        new TEMP::TempList(F::RAX(),nullptr)));
+        return temp;
+    }  
   }
   //CONST(i)
   case T::Exp::CONST:
   {
-      TEMP::Temp *e1munch=munchExp(exp);
+      T::ConstExp *constexp=(T::ConstExp*) exp;
       TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      assm="mov ";
+      sprintf(inst,"movq $%d, `d0",constexp->consti);
+      assm=std::string(inst);
       emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-      new TEMP::TempList(e1munch,nullptr),nullptr));
+      nullptr,nullptr));
       return temp;
   }
   //TEMP(t)
@@ -287,8 +242,10 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   }
   case T::Exp::NAME:
   {
+    T::NameExp *nameexp=(T::NameExp*) exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
-    assm="  ";
+    sprintf(inst,"movq $%s, `d0",TEMP::LabelString(nameexp->name));
+    assm=std::string(inst);
     emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),nullptr,nullptr));
     return temp;
   }
@@ -302,7 +259,15 @@ static TEMP::Temp *munchExp(T::Exp *exp)
 
   case T::Exp::CALL:
   {
-    return nullptr;
+    T::CallExp *callexp=(T::CallExp *)exp;
+    TEMP::Temp *temp=TEMP::Temp::NewTemp();
+    munchArgs(callexp->args);
+    TEMP::Label *label=((T::NameExp *)callexp->fun)->name;
+    sprintf(inst,"call %s",TEMP::LabelString(label));
+    assm=std::string(inst);
+    emit(new AS::OperInstr(assm,F::Callersaves(),nullptr,new AS::Targets(nullptr)));
+    emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RAX(),nullptr)));
+    return temp;
   }
   default:
     assert(0);

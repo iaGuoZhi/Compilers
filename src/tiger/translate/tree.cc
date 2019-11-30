@@ -87,6 +87,7 @@ void MemExp::Print(FILE *out, int d) const {
 
 void TempExp::Print(FILE *out, int d) const {
   indent(out, d);
+  assert(this->temp);
   fprintf(out, "TEMP t%s", TEMP::Map::Name()->Look(this->temp)->c_str());
 }
 

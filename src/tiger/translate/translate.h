@@ -14,6 +14,7 @@ namespace TR {
 
 class Exp;
 class ExpAndTy;
+class ExpList;
 class Level;
 class Access;
 class AccessList;

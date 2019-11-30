@@ -26,7 +26,11 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   temp_map = TEMP::Map::Empty();
   // Init temp_map
 
-  //  printf("doProc for function %s:\n", this->frame->label->Name().c_str());
+  //tree print
+  /*printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
+  (new T::StmList(procFrag->body,nullptr))->Print(stdout);
+  printf("-------====IR tree=====-----\n");*/
+   // printf("doProc for function %s:\n", this->frame->label->Name().c_str());
   //  (new T::StmList(proc->body, nullptr))->Print(stdout);
   //  printf("-------====IR tree=====-----\n");
 
@@ -44,9 +48,11 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   //  printf("-------====trace=====-----\n");
 
   // lab5&lab6: code generation
+  //assert(0);
   AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
-  //  AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map,
-  //  Temp_name()));
+  iList->Print(stdout,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
+  assert(0);
+  //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
 
   // lab6: register allocation
   //  printf("----======before RA=======-----\n");
@@ -69,6 +75,7 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
 }
 
 void do_str(FILE* out, F::StringFrag* strFrag) {
+  assert(strFrag->label);
   fprintf(out, "%s:\n", strFrag->label->Name().c_str());
   int length = strFrag->str.size();
   // it may contains zeros in the middle of string. To keep this work, we need
@@ -111,24 +118,27 @@ int main(int argc, char** argv) {
   // ESC::FindEscape(absyn_root); /* set varDec's escape field */
 
   // Lab5: translate IR tree
+  printf("------translate-------------");
   frags = TR::TranslateProgram(absyn_root);
   if (errormsg.anyErrors) return 1; /* don't continue */
-
+  printf("----------translate done-------");
   /* convert the filename */
   sprintf(outfile, "%s.s", argv[1]);
   out = fopen(outfile, "w");
 
   fprintf(out, ".text\n");
-  for (F::FragList* fragList = frags; fragList; fragList = fragList->tail)
+  for (F::FragList* fragList = frags; fragList; fragList = fragList->tail){
     if (fragList->head->kind == F::Frag::Kind::PROC) {
       do_proc(out, static_cast<F::ProcFrag*>(fragList->head));
     }
+  }
 
   fprintf(out, ".section .rodata\n");
   for (F::FragList* fragList = frags; fragList; fragList = fragList->tail)
     if (fragList->head->kind == F::Frag::Kind::STRING) {
       do_str(out, static_cast<F::StringFrag*>(fragList->head));
     }
+  
 
   fclose(out);
   return 0;

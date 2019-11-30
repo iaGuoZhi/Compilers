@@ -116,6 +116,24 @@ TEMP::Temp *FP(void);
 TEMP::Temp *RV(void);
 TEMP::Temp *Zero(void);
 
+TEMP::Temp *RSP(void);
+TEMP::Temp *RAX(void);
+TEMP::Temp *RBP(void);
+TEMP::Temp *RBX(void);
+TEMP::Temp *RDI(void);
+TEMP::Temp *RSI(void);
+TEMP::Temp *RDX(void);
+TEMP::Temp *RCX(void);
+TEMP::Temp *R8(void);
+TEMP::Temp *R9(void);
+TEMP::Temp *R10(void);
+TEMP::Temp *R11(void);
+TEMP::Temp *R12(void);
+TEMP::Temp *R13(void);
+TEMP::Temp *R14(void);
+TEMP::Temp *R15(void);
+
+
 TEMP::TempList specialRegs(void);
 TEMP::Temp Arg(int index);
 TEMP::TempList *Argregs(void);
