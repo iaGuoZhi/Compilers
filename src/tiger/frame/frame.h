@@ -107,7 +107,6 @@ F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist);
 //return content of Frame
 class AccessList *getFormals(Frame *frame);
 TEMP::Label getName(Frame *frame);
-
 Access *allocLocal(Frame *frame,bool escape);
 T::Exp *Exp(Access *access,T::Exp *fp);
 
@@ -132,22 +131,24 @@ TEMP::Temp *R12(void);
 TEMP::Temp *R13(void);
 TEMP::Temp *R14(void);
 TEMP::Temp *R15(void);
+TEMP::TempList *ArgRegs(void);
+
+//TEMP::TempList *specialRegs(void);
+
+TEMP::Temp *Arg(int index);
+void add_register_to_map(TEMP::Map *frameMap);
+//TEMP::TempList *Calleesaves(void);
+//TEMP::TempList *Callersaves(void);
+//TEMP::TempList *registers(void);
 
 
-TEMP::TempList specialRegs(void);
-TEMP::Temp Arg(int index);
-TEMP::TempList *Argregs(void);
-TEMP::TempList *Calleesaves(void);
-TEMP::TempList *Callersaves(void);
-TEMP::TempList *registers(void);
+//static TEMP::Map *frameMap;
+//void InitTempMap();
 
-
-static TEMP::Map *frameMap;
-void InitTempMap();
+char *prolog(F::Frame *frame);
+char *epilog(F::Frame *frame);
 
 T::Exp *externalCall(std::string s,T::ExpList *args);
-T::Stm *procEntryExit1(F::Frame *frame,T::Stm *stm);
-AS::InstrList *procEntryExit2(AS::InstrList *body);
 AS::Proc *procEntryExit3(F::Frame *frame,AS::InstrList *body);
 
 

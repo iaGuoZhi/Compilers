@@ -1,0 +1,5 @@
+let
+    var b : int := 5 
+in 
+    printi(1)
+end

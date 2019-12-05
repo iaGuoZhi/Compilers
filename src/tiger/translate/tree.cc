@@ -64,6 +64,7 @@ void MoveStm::Print(FILE *out, int d) const {
 void ExpStm::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "EXP(\n");
+  assert(this->exp);
   this->exp->Print(out, d + 1);
   fprintf(out, ")");
 }
@@ -71,8 +72,10 @@ void ExpStm::Print(FILE *out, int d) const {
 void BinopExp::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "BINOP(%s,\n", bin_oper[this->op]);
+  assert(this->left);
   left->Print(out, d + 1);
   fprintf(out, ",\n");
+  assert(this->right);
   right->Print(out, d + 1);
   fprintf(out, ")");
 }
@@ -81,6 +84,7 @@ void MemExp::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "MEM");
   fprintf(out, "(\n");
+  assert(this->exp);
   this->exp->Print(out, d + 1);
   fprintf(out, ")");
 }
@@ -94,19 +98,23 @@ void TempExp::Print(FILE *out, int d) const {
 void EseqExp::Print(FILE *out, int d) const {
   indent(out, d);
   fprintf(out, "ESEQ(\n");
+  assert(this->stm);
   this->stm->Print(out, d + 1);
   fprintf(out, ",\n");
+  assert(this->exp);
   this->exp->Print(out, d + 1);
   fprintf(out, ")");
 }
 
 void NameExp::Print(FILE *out, int d) const {
   indent(out, d);
+  assert(this->name);
   fprintf(out, "NAME %s", this->name->Name().c_str());
 }
 
 void ConstExp::Print(FILE *out, int d) const {
   indent(out, d);
+  
   fprintf(out, "CONST %d", this->consti);
 }
 
@@ -114,6 +122,7 @@ void CallExp::Print(FILE *out, int d) const {
   ExpList *args = this->args;
   indent(out, d);
   fprintf(out, "CALL(\n");
+  assert(this->fun);
   this->fun->Print(out, d + 1);
   for (; args; args = args->tail) {
     fprintf(out, ",\n");

@@ -1,0 +1,8 @@
+let 
+
+ type any = {any : int}
+ var any:=any{any=0}
+in 
+any:=nil;
+printi(any.any)
+end

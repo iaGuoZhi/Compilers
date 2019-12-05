@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 
+
 #include "tiger/errormsg/errormsg.h"
 #include "tiger/frame/temp.h"
 #include "tiger/semant/semant.h"
@@ -89,6 +90,7 @@ class Level {
     fprintf(stderr,"staticlink\n");
     while(currentLevel&&currentLevel!=destLevel)
     {
+      //fprintf(stdout,"$$$$$$$$$$$$$$$$$%s\n",currentLevel->frame->label->Name().c_str());
       //fprintf(stderr,"begin formals\n");
       assert(currentLevel->frame);
      // fp=new T::MemExp(new T::BinopExp(T::PLUS_OP,new T::ConstExp(F::wordSize),fp));
@@ -270,6 +272,8 @@ void Func(TR::Exp *body,TR::Level *level)
 F::FragList *TranslateProgram(A::Exp *root) {
   // TODO: Put your codes here (lab5).
   TR::Level *out_most=TR::Outermost();
+  //register FP() as the first temp;
+  F::FP();
   //TR::Level *main=out_most->NewLevel(out_most, TEMP::NamedLabel("tigermain"),nullptr);
   ExpAndTy mainExpAndTy= root->Translate(E::BaseVEnv(),E::BaseTEnv(),out_most,nullptr);
   assert(mainExpAndTy.exp);
@@ -280,12 +284,15 @@ F::FragList *TranslateProgram(A::Exp *root) {
 
 T::ExpList *ReverseArgs(TR::ExpList *t_explist)
 {
-  T::ExpList *res=nullptr;
+  T::ExpList *res=nullptr,*temp;
+  if(t_explist==nullptr) return res;
   TR::ExpList *pre=t_explist;
-  while(t_explist)
+  while(pre)
   {
-    res=new T::ExpList(t_explist->head->UnEx(),res);
+    //fprintf(stdout,"aaaaaaaaaaataaaa%daaaaaaaaaa\n",pre->head->UnEx()->kind);
+    res=new T::ExpList(pre->head->UnEx(),res);
     pre=pre->tail;
+
   }
   return res;
 }
@@ -331,6 +338,7 @@ TR::ExpAndTy SimpleVar::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------simplevar-----------%s---\n",this->sym->Name().c_str());
   //fprintf(stderr,"simplevar : %s \n",this->sym->Name().c_str());
   E::EnvEntry *enventry=venv->Look(sym);
   TR::Exp *exp;
@@ -363,15 +371,17 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------fieldvar--------------\n");
   TR::ExpAndTy varExpAndTy=var->Translate(venv,tenv,level,label);
-  assert(varExpAndTy.ty->ActualTy()->kind==TY::Ty::RECORD);
+  //assert(varExpAndTy.ty->ActualTy()->kind==TY::Ty::RECORD);
   
   if(varExpAndTy.ty->ActualTy()->kind!=TY::Ty::RECORD)
   {
+    fprintf(stdout,"%d\n",varExpAndTy.ty->ActualTy()->kind);
     assert(0);
     return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
   }
-  TY::RecordTy *recordty=(TY::RecordTy *)(varExpAndTy.ty->ActualTy());
+  TY::RecordTy *recordty=(TY::RecordTy *)(varExpAndTy.ty);
   TY::FieldList *recordfields=recordty->fields;
   TR::Exp *recordExp=(TR::ExExp *)varExpAndTy.exp;
   int index=0;
@@ -397,6 +407,7 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
                                      S::Table<TY::Ty> *tenv, TR::Level *level,
                                      TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------subscriptvar--------------\n");
   TR::ExpAndTy varExpAndTy= var->Translate(venv,tenv,level,label);
   TY::Ty *varTy=varExpAndTy.ty;
   TR::Exp *varExp=varExpAndTy.exp;
@@ -419,13 +430,14 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
   T::Exp *addr=new T::BinopExp(T::PLUS_OP,varExp->UnEx(),offset);
   
   TR::Exp *memExp=new TR::ExExp(new T::MemExp(addr));
-  return TR::ExpAndTy(memExp,varTy->ActualTy());
+  return TR::ExpAndTy(memExp,((TY::ArrayTy *)varTy)->ty);
 }
 
 TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------varexp--------------\n");
   TR::ExpAndTy varExpAndTy=this->var->Translate(venv,tenv,level,label);
   varExpAndTy.ty=varExpAndTy.ty->ActualTy();
   return varExpAndTy;
@@ -435,6 +447,7 @@ TR::ExpAndTy NilExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------nilexp--------------\n");
   TR::Exp *exp=new TR::ExExp(new T::ConstExp(0));
   return TR::ExpAndTy(exp, TY::NilTy::Instance());
 }
@@ -443,6 +456,7 @@ TR::ExpAndTy IntExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------intexp--------------\n");
   TR::Exp *exp=new TR::ExExp(new T::ConstExp(this->i));
   return TR::ExpAndTy(exp, TY::IntTy::Instance());
 }
@@ -451,10 +465,11 @@ TR::ExpAndTy StringExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------stringexp--------------\n");
   TEMP::Label *newlabel=TEMP::NewLabel();
   F::Frag *frag=new F::StringFrag(newlabel,this->s);
   frags=new F::FragList(frag,frags);
-  TR::Exp *exp=new TR::ExExp(new T::NameExp(label));
+  TR::Exp *exp=new TR::ExExp(new T::NameExp(newlabel));
   return TR::ExpAndTy(exp, TY::StringTy::Instance());
 }
 
@@ -462,8 +477,9 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------callexp--------------\n");
   if (!venv->Look(func)){
-    assert(0);
+   // assert(0);
     return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
   }
 
@@ -486,18 +502,21 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
       venv,tenv,level,label
     );
    
-    T::Exp *exp=argExpAndTy.exp->UnEx();
-    t_explist=new TR::ExpList(new TR::ExExp(exp),t_explist);
+      t_explist=new TR::ExpList(argExpAndTy.exp,t_explist);
+      argExpAndTy.exp->UnEx()->Print(stdout,0);
   }
   
   if(funcentry->level->parent)
   {
     T::Exp *linkExp= level->staticLink(funcentry->level->parent);
-    T::Exp *callExp=new T::CallExp(new T::NameExp(func),new T::ExpList(linkExp,TR::ReverseArgs(t_explist)));
+      T::Exp *callExp=new T::CallExp(new T::NameExp(funcentry->label),new T::ExpList(linkExp,TR::ReverseArgs(t_explist)));
     TR::Exp *exp=new TR::ExExp(callExp);
     return TR::ExpAndTy(exp,resultTy);
   }
    else{
+     //fprintf(stdout,"------------no parent--------------\n");
+     //fprintf(stdout,"%s\n",func->Name().c_str());
+     //assert(TR::ReverseArgs(t_explist));
       TR::Exp *exp=new TR::ExExp(F::externalCall(TEMP::LabelString(func),TR::ReverseArgs(t_explist)));
       return TR::ExpAndTy(exp,resultTy);
    }   
@@ -508,6 +527,7 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------opexp--------------\n");
   TR::ExpAndTy leftExpAndTy=this->left->Translate(venv,tenv,level,label);
   TR::ExpAndTy rightExpAndTy=this->right->Translate(venv,tenv,level,label);
 
@@ -566,9 +586,10 @@ TR::ExpAndTy OpExp::Translate(S::Table<E::EnvEntry> *venv,
   else{
     if(t_stm!=nullptr)
     {
-      TR::Cx *cx=new TR::Cx(new TR::PatchList( &((T::CjumpStm *)(cx->stm))->true_label,nullptr),
-        new TR::PatchList(&((T::CjumpStm *)(cx->stm))->false_label,nullptr),
+      TR::Cx *cx=new TR::Cx(new TR::PatchList( &((T::CjumpStm *)(t_stm))->true_label,nullptr),
+        new TR::PatchList(&((T::CjumpStm *)(t_stm))->false_label,nullptr),
         t_stm);
+
       exp=new TR::CxExp(*cx);
     }
       
@@ -595,8 +616,8 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------recordexp--------------\n");
   TY::Ty *ty = tenv->Look(typ);
-  assert(ty);
   ty=ty->ActualTy();
   T::Stm *stm;
   A::EFieldList *a_efieldlist;
@@ -607,7 +628,6 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
   int length=0;
   for(a_efieldlist=this->fields;a_efieldlist; a_efieldlist=a_efieldlist->tail)
   {
-    assert(a_efieldlist);
       TR::ExpAndTy fieldExpAndTy=a_efieldlist->head->exp->Translate(
         venv,tenv,level,label
       );
@@ -620,7 +640,7 @@ TR::ExpAndTy RecordExp::Translate(S::Table<E::EnvEntry> *venv,
   }
   
   TEMP::Temp *temp=TEMP::Temp::NewTemp();
-  stm=new T::MoveStm(new T::TempExp(temp),F::externalCall("malloc",
+  stm=new T::MoveStm(new T::TempExp(temp),F::externalCall("allocRecord",
        new T::ExpList(new T::ConstExp(length *F::wordSize),nullptr)));
   T::Exp *recordExp=new T::EseqExp(stm,new T::EseqExp(
       createFields(temp,length-1,t_exps),new T::TempExp(temp)));
@@ -632,20 +652,29 @@ TR::ExpAndTy SeqExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------seqexp--------------\n");
   A::ExpList *seqExp=this->seq;
   T::ExpList *t_explist=nullptr;
   TR::Exp *tr_exp=new TR::ExExp(new T::ConstExp(0));
   TY::Ty *ty=TY::VoidTy::Instance();
   if(seqExp==nullptr)
-    return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  {
+    assert(0);
+    return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
+  }
   for(seqExp;seqExp;seqExp=seqExp->tail)
   {
+    
     TR::ExpAndTy seqExpAndTy=seqExp->head->Translate(venv,tenv,level,label);
-    //t_explist=new T::ExpList(seqExpAndTy.exp->UnEx(),t_explist);
+     //t_explist=new T::ExpList(seqExpAndTy.exp->UnEx(),t_explist);
+    fprintf(stdout,"------------se--------xxxxxxxxxxxxxxxx------\n");
+    
     tr_exp=new TR::ExExp(new T::EseqExp(tr_exp->UnNx(),seqExpAndTy.exp->UnEx()));
     //t_exp=new T::EseqExp(t,seqExpAndTy.exp->UnEx());
     ty=seqExpAndTy.ty;
+   
   }
+  fprintf(stdout,"------------seqexp--------------\n");
   return TR::ExpAndTy(tr_exp,ty);
 }
 
@@ -653,14 +682,16 @@ TR::ExpAndTy AssignExp::Translate(S::Table<E::EnvEntry> *venv,
                                   S::Table<TY::Ty> *tenv, TR::Level *level,
                                   TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------assigexp--------------\n");
   TR::ExpAndTy varExpAndTy=this->var->Translate(venv,tenv,level,label);
   this->var->Print(stderr,0);
   TR::ExpAndTy expExpAndTy=this->exp->Translate(venv,tenv,level,label);
   assert(varExpAndTy.exp);
   assert(expExpAndTy.exp);
   //assert(varExpAndTy.ty->IsSameType(expExpAndTy.ty));
-  T::Stm *moveStm=new T::MoveStm(expExpAndTy.exp->UnEx(),varExpAndTy.exp->UnEx());
+  T::Stm *moveStm=new T::MoveStm(varExpAndTy.exp->UnEx(),expExpAndTy.exp->UnEx());
   TR::Exp *exp=new TR::NxExp(moveStm);
+  fprintf(stdout,"------------assigexp--------------\n");
   return TR::ExpAndTy(exp, TY::VoidTy::Instance());
 }
 
@@ -668,6 +699,7 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
                               S::Table<TY::Ty> *tenv, TR::Level *level,
                               TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------ifexp--------------\n");
   TEMP::Label *t=TEMP::NewLabel();
   TEMP::Label *f=TEMP::NewLabel();
   TEMP::Label *done=TEMP::NewLabel();
@@ -715,12 +747,19 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------whileexp--------------\n");
+  
   TEMP::Label *t=TEMP::NewLabel();
   TEMP::Label *l=TEMP::NewLabel();
   TEMP::Label *done=TEMP::NewLabel();
+  this->test->Print(stdout,0);
+  //this->body->Print(stdout,0);
   TR::ExpAndTy testExpAndTy =this->test->Translate(venv,tenv,level,label);
-  TR::ExpAndTy bodyExpAndTY=this->body->Translate(venv,tenv,level,label);
-
+  TR::ExpAndTy bodyExpAndTY=this->body->Translate(venv,tenv,level,done);
+  fprintf(stdout,"***********************\n");
+  this->test->Print(stdout,0);
+  fprintf(stdout,"***********************\n");
+  //this->body->Print(stdout,0);
   TR::Cx testCx= (testExpAndTy.exp->UnCx());
   TR::do_patch(testCx.trues,l);
   TR::do_patch(testCx.falses,done);
@@ -731,6 +770,7 @@ TR::ExpAndTy WhileExp::Translate(S::Table<E::EnvEntry> *venv,
   new T::LabelStm(done))) )));
 
   TR::Exp *exp=new TR::NxExp(stmNx);
+  fprintf(stdout,"------------whileexp--------------\n");
   return TR::ExpAndTy(exp, TY::VoidTy::Instance());
 }
 
@@ -738,6 +778,7 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
                                S::Table<TY::Ty> *tenv, TR::Level *level,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------forexp--------------\n");
   venv->BeginScope();
   tenv->BeginScope();
   // i enter
@@ -751,7 +792,7 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
   fprintf(stderr,"for i enter\n");
   venv->Enter(var,new E::VarEntry(loopAccess, TY::IntTy::Instance(),true));
 
-  TR::ExpAndTy bodyExpAndTy =this->body->Translate(venv,tenv,level,label);
+  TR::ExpAndTy bodyExpAndTy =this->body->Translate(venv,tenv,level,done);
 
   tenv->EndScope();
   venv->EndScope();
@@ -786,10 +827,16 @@ TR::ExpAndTy BreakExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
-  TEMP::Label *done;
-  T::Stm *stmNx=new T::JumpStm(new T::NameExp(done),new TEMP::LabelList(done,nullptr));
+  fprintf(stdout,"------------breakexp--------------\n");
+  if(label)
+  {
+  T::Stm *stmNx=new T::JumpStm(new T::NameExp(label),new TEMP::LabelList(label,nullptr));
   TR::Exp *exp=new TR::NxExp(stmNx);
   return TR::ExpAndTy(exp, TY::VoidTy::Instance());
+  }
+  else{
+    return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)),TY::VoidTy::Instance());
+  }
 }
 
 TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -797,6 +844,7 @@ TR::ExpAndTy LetExp::Translate(S::Table<E::EnvEntry> *venv,
                                TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
   //fprintf(stderr,"letexp tr\n");
+  fprintf(stdout,"------------letexp--------------\n");
   DecList *d;
   venv->BeginScope();
   tenv->BeginScope();
@@ -818,12 +866,13 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
                                  S::Table<TY::Ty> *tenv, TR::Level *level,
                                  TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------arrayexp--------------\n");
   TY::Ty *ty=tenv->Look(typ);
   assert(ty);
   TY::ArrayTy *arrayTy;
   ty=ty->ActualTy();
-  arrayTy=(TY::ArrayTy*)ty;
-
+ // arrayTy=(TY::ArrayTy*)ty;
+  std::string func="initArray";
   TR::ExpAndTy initExpAndTy=this->init->Translate(venv,tenv,level,label);
   TR::ExpAndTy sizeExpAndTy=this->size->Translate(venv,tenv,level,label);
   TEMP::Temp *res=TEMP::Temp::NewTemp();
@@ -836,22 +885,24 @@ TR::ExpAndTy ArrayExp::Translate(S::Table<E::EnvEntry> *venv,
                     new T::TempExp(res))));
 
   TR::Exp *exp=new TR::ExExp(arrayExp);
-  return TR::ExpAndTy(exp, arrayTy);
+  return TR::ExpAndTy(exp, ty);
 }
 
 TR::ExpAndTy VoidExp::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
-  return TR::ExpAndTy(nullptr, TY::VoidTy::Instance());
+  fprintf(stdout,"------------voidexp--------------\n");
+  return TR::ExpAndTy(new TR::ExExp(new T::ConstExp(0)), TY::VoidTy::Instance());
 }
 
 TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
                                 S::Table<TY::Ty> *tenv, TR::Level *level,
                                 TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------functiondec--------------\n");
   TY::Ty *result_ty;
-  A::FunDecList *funList;
+  FunDecList *funList;
   A::FunDec *funDec;
   A::FieldList *fieldlist;
   E::FunEntry *funcentry;
@@ -860,9 +911,10 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
   //first iterator, function name,and enter venv
   for (funList=functions;funList;funList=funList->tail)
   {
+    int count=0;
     funDec = funList->head;
     result_ty = TY::VoidTy::Instance();
-    if (funDec->result) {
+    if (funDec->result&&(funDec->result->Name().compare("")!=0)) {
       result_ty = tenv->Look(funDec->result);
     }
     
@@ -870,10 +922,10 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     tylist = make_formal_tylist(tenv, funDec->params);
   
     TY::TyList *formalTys=make_formal_tylist(tenv,funDec->params);
-    TEMP::Label *new_lebel=funList->head->name;
+    TEMP::Label *new_label=TEMP::NewLabel();
     U::BoolList *escape_list=make_escape_list(funDec->params);
-    TR::Level *new_level=level->NewLevel(level,new_lebel,escape_list);
-    venv->Enter(funDec->name, new E::FunEntry(new_level,TEMP::NewLabel(),tylist, result_ty));
+    TR::Level *new_level=level->NewLevel(level,new_label,escape_list);
+    venv->Enter(funDec->name, new E::FunEntry(new_level,new_label,tylist, result_ty));
   
   }
 
@@ -887,7 +939,7 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     funcentry = (E::FunEntry *)venv->Look(funDec->name);
     tylist = funcentry->formals;
     TR::AccessList *accesslist=funcentry->level->Formals();
-    assert(accesslist);
+    //assert(accesslist);
     while (tylist && fieldlist)
     {
       fprintf(stderr,"param: %s\n",fieldlist->head->name->Name().c_str());
@@ -898,8 +950,9 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     }
     TR::ExpAndTy bodyExpAndTy=funDec->body->Translate(venv,tenv,funcentry->level,label);
     result_ty=bodyExpAndTy.ty;
-    TR::procEntryExit(funcentry->level,bodyExpAndTy.exp,accesslist);
+    //TR::procEntryExit(funcentry->level,bodyExpAndTy.exp,accesslist);
     venv->EndScope();
+    TR::Func(bodyExpAndTy.exp,funcentry->level);
   }
   return new TR::ExExp(new T::ConstExp(0));
 }
@@ -907,10 +960,18 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
 TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                            TR::Level *level, TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------vardec--------------\n");
   TR::ExpAndTy decExpAndTy=this->init->Translate(venv,tenv,level,label);
   TR::Access *access=level->AllocLocal(true);
-
+  if(this->typ)
+  {
+    TY::Ty *existty=tenv->Look(this->typ);
+    existty=existty->ActualTy();
+    venv->Enter(var,new E::VarEntry(access,existty,true));
+  }
+  else{
   venv->Enter(var,new E::VarEntry(access, decExpAndTy.ty,true));
+  }
 
   T::Stm *varStm=new T::MoveStm(
     (new TR::ExExp(F::Exp(access->access,level->staticLink(access->level))))->UnEx(),
@@ -923,7 +984,10 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
                             TR::Level *level, TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------typedec--------------\n");
   A::NameAndTyList *sem_types=types,*tyList;
+  A::NameAndTy *nameTy;
+  TY::Ty *idtype;
   for(sem_types; sem_types;sem_types=sem_types->tail)
   {
     tenv->Enter(sem_types->head->name,new TY::NameTy(sem_types->head->name,nullptr));
@@ -932,11 +996,48 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
   tyList = types;
   while(tyList) {
     TY::Ty *ty = tenv->Look(tyList->head->name);
-    ((TY::NameTy *)ty)->ty = tyList->head->ty->Translate(tenv);
+    nameTy=tyList->head;
+    switch (nameTy->ty->kind)
+    {
+    case A::Ty::NAME:
+      ((TY::NameTy*)ty)->sym=((A::NameTy*)nameTy->ty)->name;
+      
+      break;
+    case A::Ty::RECORD:
+      ty=new TY::RecordTy(make_fieldlist(tenv,((A::RecordTy*)nameTy->ty)->record));
+      break;
+    default:
+      ty=new TY::ArrayTy(tenv->Look(((A::ArrayTy*)nameTy->ty)->array));
+      break;
+    }
+    //assert(ty->kind==TY::Ty::NAME);
+    //((TY::NameTy *)ty)->ty = tyList->head->ty->Translate(tenv);
     tyList = tyList->tail;
   }
-
+  
+  /*//check record type and array type
+  tyList=types;
+  while(tyList)
+  {
+    nameTy=tyList->head;
+    switch (nameTy->ty->kind)
+    {
+    case A::Ty::NAME:
+      break;
+    case A::Ty::RECORD:
+    {
+      idtype=tenv->Look(nameTy->name);
+      TY::RecordTy *recordTy=(TY::RecordTy *) idtype;
+      recordTy->fields=
+      break;
+    }
+    
+    default:
+      break;
+    }
+  }*/
   //check recursive
+  /*
   tyList=types;
   while(tyList) {
     TY::Ty *ty = tenv->Look(tyList->head->name);
@@ -952,29 +1053,40 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
       }
     }
     tyList = tyList->tail;
-  }
+  }*/
   return new TR::ExExp(new T::ConstExp(0));
 }
 
 TY::Ty *NameTy::Translate(S::Table<TY::Ty> *tenv) const {
   // TODO: Put your codes here (lab5).
-  return tenv->Look(name);
+  fprintf(stdout,"------------namety--------------\n");
+  TY::Ty *type=tenv->Look(this->name);
+  while(type&&type->kind==TY::Ty::NAME)
+  {
+    TY::NameTy *nameTy=(TY::NameTy *)type;
+    if(nameTy->ty)
+    {
+      type=nameTy->ty;
+    }
+    else{
+      break;
+    }
+  }
+  return type;
 }
 
 TY::Ty *RecordTy::Translate(S::Table<TY::Ty> *tenv) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------recordty--------------\n");
   TY::FieldList *fieldlist=make_fieldlist(tenv,record);
-  TY::FieldList *test=make_fieldlist(tenv,record);
-  while(test){
-    fprintf(stderr,"        %s\n",test->head->name->Name().c_str());
-    test=test->tail;
-  }
+  
   fprintf(stderr,"        %s\n",fieldlist->head->name->Name().c_str());
   return new TY::RecordTy(fieldlist);
 }
 
 TY::Ty *ArrayTy::Translate(S::Table<TY::Ty> *tenv) const {
   // TODO: Put your codes here (lab5).
+  fprintf(stdout,"------------arrayty--------------\n");
   TY::Ty *ty=tenv->Look(array);
   return new TY::ArrayTy(ty);
 }

@@ -1,20 +1,51 @@
 #include "tiger/codegen/codegen.h"
-
+#include<cstdio>
+#include <map>
+#include<sstream>
 
 #define MAX_INST_LEN 40
 #define TEMP_STR_LENGTH 100
 
+static int rspoffset=0;
 static int wordSize=8;
 namespace CG {
 
-
-static AS::InstrList *iList=nullptr,*iLast=nullptr;
+TEMP::Map *layermap=TEMP::Map::Empty();
+int framesize=0;
+int max_offset=0;
+//固定寄存器
+AS::InstrList *iList=nullptr,*iLast=nullptr;
 
 /*munch functions*/
 static void munchStm(T::Stm *stm);
 static TEMP::Temp *munchExp(T::Exp *exp);
 static TEMP::TempList *munchArgs(int cnt,T::ExpList *args);
+std::map<int,int> mapping;
 
+
+int mapping_stack_temp(int temp_int)
+{
+  if(mapping.find(temp_int)==mapping.end())
+  {
+    max_offset+=wordSize;
+    int offset=max_offset;
+    mapping[temp_int]=offset;
+  }
+  return mapping[temp_int];
+}
+
+void store_temp_into_stack(TEMP::Temp *temp)
+{
+  //the special reg to store stack top position
+  if(temp->Int()==100)
+  {
+    layermap->Enter(temp,new std::string("%r15"));
+    return;
+  }
+  std::stringstream stream;
+  stream<<mapping_stack_temp(temp->Int())<<"(%rsp)";
+  layermap->Enter(temp,new std::string(stream.str()));
+}
 
 static void emit(AS::Instr *inst)
 {
@@ -27,33 +58,40 @@ static void emit(AS::Instr *inst)
     iLast=iList;
   }
 }
+void make_link(int size)
+{
+  AS::OperInstr *leaq;
+  char inst[MAX_INST_LEN];
+  sprintf(inst,"leaq %d(%%rsp), %%r15",size);
+  leaq=new AS::OperInstr(std::string(inst),nullptr,nullptr,nullptr);
+  iList=new AS::InstrList(leaq,iList);
+}
 
-AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
+RA::Result Codegen(F::Frame* f, T::StmList* stmList) {
+  //init
+  iList=nullptr;
+  iLast=nullptr;
+  layermap=TEMP::Map::Empty();
+  F::add_register_to_map(layermap);
   // TODO: Put your codes here (lab6).
+  RA::Result allocation;
   AS::InstrList *instrlist;
   T::StmList *stmlist=stmList;
-  //fprintf(stdout,"------------code generation-----------\n");
-  //save callee saved registers
-  TEMP::Temp *rbx=TEMP::Temp::NewTemp();
-  TEMP::Temp *rsi=TEMP::Temp::NewTemp();
-  TEMP::Temp *rdi=TEMP::Temp::NewTemp();
-
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rbx,nullptr),new TEMP::TempList(F::RBX(),nullptr)));
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rsi,nullptr),new TEMP::TempList(F::RSI(),nullptr)));
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(rdi,nullptr),new TEMP::TempList(F::RDI(),nullptr)));
-
+  framesize=f->size*wordSize;
+  
   for(stmlist;stmlist;stmlist=stmlist->tail)
   {
     munchStm(stmlist->head);
   }
 
-  //restore callee saved registers
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RBX(),nullptr),new TEMP::TempList(rbx,nullptr)));
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RSI(),nullptr),new TEMP::TempList(rsi,nullptr)));
-  emit(new AS::MoveInstr("movq `s0 `d0\n",new TEMP::TempList(F::RDI(),nullptr),new TEMP::TempList(rdi,nullptr)));
-
-  instrlist=iList;
-  return instrlist;
+  framesize=framesize+max_offset+wordSize;
+  f->size=framesize/wordSize;
+  //保护在tr中被用到的寄存器名字
+  layermap->Enter(F::RAX(),new std::string("%rax"));
+  make_link(framesize);
+  allocation.il=iList;
+  allocation.coloring=layermap;
+  return allocation;
 }
 
 static void munchStm(T::Stm *stm)
@@ -75,9 +113,16 @@ static void munchStm(T::Stm *stm)
     {
       TEMP::Temp *e2=munchExp(src);
       T::TempExp *dsttempexp=(T::TempExp*) dst;
-      assm="movq$ `s0, `d0";
-      emit(new AS::MoveInstr(assm,new TEMP::TempList(dsttempexp->temp,nullptr)
-        ,new TEMP::TempList(e2,nullptr)));
+
+      store_temp_into_stack(e2);
+      store_temp_into_stack(dsttempexp->temp);
+     
+      assm="movq `s0, `d0";
+
+      //load from memory
+      emit(new  AS::MoveInstr(assm,new TEMP::TempList(F::R12(),nullptr),new TEMP::TempList(e2,nullptr)));
+      //store to memory
+      emit(new AS::MoveInstr(assm,new TEMP::TempList(dsttempexp->temp,nullptr),new TEMP::TempList(F::R12(),nullptr)));
       return;
     }
     //move src,mem
@@ -87,10 +132,15 @@ static void munchStm(T::Stm *stm)
       TEMP::Temp *srctemp=munchExp(src);
       T::MemExp *memexp=(T::MemExp*) dst;
       TEMP::Temp *memtemp=munchExp(memexp->exp);
-      
+     
+      store_temp_into_stack(srctemp);
+      store_temp_into_stack(memtemp);
+
+      assm="movq `s0, `d0";
+      emit(new AS::OperInstr(assm,new TEMP::TempList(F::R13(),nullptr),new TEMP::TempList(memtemp,nullptr),nullptr));
+      emit(new AS::OperInstr(assm,new TEMP::TempList(F::R12(),nullptr),new TEMP::TempList(srctemp,nullptr),nullptr));
       assm="movq `s0, (`s1)";
-      emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(srctemp,
-        new TEMP::TempList(memtemp,nullptr)),new AS::Targets(nullptr)));
+      emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(F::R12(),new TEMP::TempList(F::R13(),nullptr)),new AS::Targets(nullptr)));
       return;
     } 
     assert(0);
@@ -102,7 +152,7 @@ static void munchStm(T::Stm *stm)
     T::JumpStm *jumpstm=(T::JumpStm*) stm;
     TEMP::LabelList *jumplist=jumpstm->jumps;
     TEMP::Label *label=jumpstm->exp->name;
-    sprintf(inst,"jmp %s",TEMP::LabelString(label));
+    sprintf(inst,"jmp %s",TEMP::LabelString(label).c_str());
     assm=std::string(inst);
     emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(jumplist)));
     return ;
@@ -116,10 +166,16 @@ static void munchStm(T::Stm *stm)
     TEMP::Label *trues=cjumpstm->true_label;
     TEMP::Label *falses=cjumpstm->false_label;
 
-    assm="cmp `s0, `s1";
-    emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(right,
-      new TEMP::TempList(left,nullptr)),nullptr));
+    store_temp_into_stack(left);
+    store_temp_into_stack(right);
 
+    assm="movq `s0, `d0";
+    emit(new AS::OperInstr(assm,new TEMP::TempList(F::R13(),nullptr),new TEMP::TempList(left,nullptr),nullptr));
+    emit(new AS::OperInstr(assm,new TEMP::TempList(F::R12(),nullptr),new TEMP::TempList(right,nullptr),nullptr));
+
+
+    assm="cmp `s0, `s1";
+    emit(new AS::OperInstr(assm,nullptr,new TEMP::TempList(F::R12(),new TEMP::TempList(F::R13(),nullptr)),nullptr));
     switch(cjumpstm->op)
     {
       case T::EQ_OP: assm="je"; break;
@@ -135,9 +191,8 @@ static void munchStm(T::Stm *stm)
     }
     assm+=" ";
     assm+=TEMP::LabelString(trues);
-    //
-    emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(
-      new TEMP::LabelList(trues,nullptr))));
+    
+    emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(new TEMP::LabelList(trues,nullptr))));
     return;
   }
   case T::Stm::LABEL:
@@ -145,7 +200,6 @@ static void munchStm(T::Stm *stm)
     //fprintf(stdout,"-----------------label stm--------------\n");
     T::LabelStm *labelstm=(T::LabelStm *)stm;
     assm=TEMP::LabelString(labelstm->label);
-    assm+=":";
     emit(new AS::LabelInstr(assm,labelstm->label));
     return;
   }
@@ -165,14 +219,45 @@ static void munchStm(T::Stm *stm)
 
 static void munchArgs(T::ExpList *explist)
 {
-  if (explist)
+  T::ExpList *arglist=explist;
+
+  //move args to rdi,rsi... for external calls
+  TEMP::TempList *regList=F::ArgRegs();
+  AS::InstrList *pushList=nullptr;
+  while(regList&&explist)
   {
-    //fprintf(stdout,"-----------------munchArgs--------------\n");
-    TEMP::Temp *temp=TEMP::Temp::NewTemp();
-    munchArgs(explist->tail);
-    temp=munchExp(explist->head);
-    emit(new AS::OperInstr("pushl `s0",nullptr,new TEMP::TempList(temp,nullptr),new AS::Targets(nullptr)));
+    TEMP::Temp *temp=munchExp(explist->head);
+    emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(regList->head,nullptr),new TEMP::TempList(temp,nullptr)));
+    regList=regList->tail;
+    explist=explist->tail;
   }
+
+  /******************
+   * 栈帧结构
+   * %r15 上层栈帧的顶部位置
+   * %rcx
+   * %rdx
+   * %rsi
+   * %rdi   =========>  保存当前帧的顶部
+   * 返回地址
+   * 下方新的帧空间
+   * ****************/
+  emit(new AS::OperInstr("pushq %r15",nullptr,nullptr,new AS::Targets(nullptr)));
+  regList=F::ArgRegs();
+  while(arglist)
+  {
+    pushList=new AS::InstrList(new AS::OperInstr("pushq `s0",nullptr,new TEMP::TempList(regList->head,nullptr),new AS::Targets(nullptr)),pushList);
+    arglist=arglist->tail;
+    regList=regList->tail;
+    rspoffset+=wordSize;
+  }
+  // reverse push order
+  while(pushList)
+  {
+    emit(pushList->head);
+    pushList=pushList->tail;
+  }
+  assert(explist==nullptr);
 }
 
 static TEMP::Temp *munchExp(T::Exp *exp)
@@ -188,39 +273,48 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     T::MemExp *memexp=(T::MemExp*) exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
     TEMP::Temp *memtmp=munchExp(memexp->exp);
+    
+    store_temp_into_stack(temp);
+    store_temp_into_stack(memtmp);
+
+    assm="movq `s0, `d0";
+    emit(new AS::OperInstr(assm,new TEMP::TempList(F::RDX(),nullptr),new TEMP::TempList(memtmp,nullptr),nullptr));
     assm="movq (`s0), `d0";
-    emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
-    new TEMP::TempList(memtmp,nullptr), new AS::Targets(nullptr)));
+    emit(new AS::OperInstr(assm,new TEMP::TempList(F::RCX(),nullptr),new TEMP::TempList(F::RDX(),nullptr), new AS::Targets(nullptr)));
+    assm="movq `s0, `d0";
+    emit(new AS::MoveInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RCX(),nullptr)));
     return temp;
   }
   case T::Exp::BINOP:
   {
     //fprintf(stdout,"-----------------binop exp--------------\n");
     T::BinopExp *binopexp=(T::BinopExp*) exp;
+    TEMP::Temp *left=munchExp(binopexp->left);
+    TEMP::Temp *right=munchExp(binopexp->right);
+    TEMP::Temp *temp=TEMP::Temp::NewTemp();
+
+    store_temp_into_stack(left);
+    store_temp_into_stack(right);
+    store_temp_into_stack(temp);
+
     //movq left,dst
     //addq right dst
     if(binopexp->op==T::PLUS_OP)
-    {
-      TEMP::Temp *left=munchExp(binopexp->left);
-      TEMP::Temp *right=munchExp(binopexp->right);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(left,nullptr)));
-      emit(new AS::OperInstr("addq `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
+    { 
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(left,nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R13(),nullptr), new TEMP::TempList(right,nullptr)));
+      emit(new AS::OperInstr("addq `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(F::R13(),nullptr),new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr), new TEMP::TempList(F::R12(),nullptr)));
       return temp;
     }
     //movq left,dst
     //subq right,dst
     if(binopexp->op==T::MINUS_OP)
     {
-      TEMP::Temp *left=munchExp(binopexp->left);
-      TEMP::Temp *right=munchExp(binopexp->right);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(left,nullptr)));
-      emit(new AS::OperInstr("subq `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(left,nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R13(),nullptr), new TEMP::TempList(right,nullptr)));
+      emit(new AS::OperInstr("subq `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(F::R13(),nullptr),new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr), new TEMP::TempList(F::R12(),nullptr)));
       return temp;
     }
 
@@ -228,32 +322,26 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     //imul right,dst
     if(binopexp->op==T::MUL_OP)
     {
-      TEMP::Temp *left=munchExp(binopexp->left);
-      TEMP::Temp *right=munchExp(binopexp->right);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(left,nullptr)));
-      emit(new AS::OperInstr("imul `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(right,new TEMP::TempList(temp,nullptr)),new AS::Targets(nullptr)));
-      return temp;
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(left,nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R13(),nullptr), new TEMP::TempList(right,nullptr)));
+      emit(new AS::OperInstr("imul `s0, `d0",new TEMP::TempList(F::R12(),nullptr), new TEMP::TempList(F::R13(),nullptr),new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr), new TEMP::TempList(F::R12(),nullptr)));
+       return temp;
     }
 
-     //movq left,%rax
-     //cltd #use rax's sign bit to fill rdx
+     //movq left,%RAX
+     //cltd #use RAX's sign bit to fill rdx
      //idivl right 
     if(binopexp->op==T::DIV_OP)
     {
-      TEMP::Temp *left=munchExp(binopexp->left);
-      TEMP::Temp *right=munchExp(binopexp->right);
-      TEMP::Temp *temp=TEMP::Temp::NewTemp();
-      emit(new AS::MoveInstr("movl `s0, `d0",new TEMP::TempList(F::RAX(),nullptr),new TEMP::TempList(left,nullptr)));
-      emit(new AS::OperInstr("cltd",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))
-      ,new TEMP::TempList(F::RAX(),nullptr), new AS::Targets(nullptr)));
-      emit(new AS::OperInstr("idivl `s0",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr)),
-        new TEMP::TempList(right,new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))),
-          new AS::Targets(nullptr)));
-      emit(new AS::MoveInstr("movl `s0, `d0",new TEMP::TempList(temp,nullptr),
-        new TEMP::TempList(F::RAX(),nullptr)));
+     
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::RAX(),nullptr),new TEMP::TempList(left,nullptr)));
+      emit(new AS::OperInstr("cltd",nullptr,nullptr, new AS::Targets(nullptr)));
+     
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::R13(),nullptr),new TEMP::TempList(right,nullptr)));
+      emit(new AS::OperInstr("idivq `s0",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr)),
+        new TEMP::TempList(F::R13(),new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))),new AS::Targets(nullptr)));
+      emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RAX(),nullptr)));
         return temp;
     }  
   }
@@ -263,6 +351,8 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     //fprintf(stdout,"-----------------const exp--------------\n");
       T::ConstExp *constexp=(T::ConstExp*) exp;
       TEMP::Temp *temp=TEMP::Temp::NewTemp();
+      store_temp_into_stack(temp);
+
       sprintf(inst,"movq $%d, `d0",constexp->consti);
       assm=std::string(inst);
       emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),
@@ -274,6 +364,7 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   {
     //fprintf(stdout,"-----------------temp exp--------------\n");
     T::TempExp *tempexp=(T::TempExp*) exp;
+    store_temp_into_stack(tempexp->temp);
     return tempexp->temp;
   }
   case T::Exp::NAME:
@@ -281,31 +372,37 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     //fprintf(stdout,"-----------------name exp--------------\n");
     T::NameExp *nameexp=(T::NameExp*) exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
-    sprintf(inst,"movq $%s, `d0",TEMP::LabelString(nameexp->name));
+
+    store_temp_into_stack(temp);
+    
+    sprintf(inst, "leaq %s(%%rip), `d0", TEMP::LabelString(nameexp->name).c_str());
     assm=std::string(inst);
-    emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),nullptr,nullptr));
+    emit(new AS::OperInstr(assm,new TEMP::TempList(F::R12(),nullptr),nullptr,nullptr));
+    
+    emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::R12(),nullptr)));
     return temp;
   }
-  //
-  case T::Exp::ESEQ:
-  {
-    /*//fprintf(stdout,"-----------------eseq exp--------------\n");
-    T::EseqExp *eseqexp=(T::EseqExp *)exp;
-    munchStm(eseqexp->stm);
-    return munchExp(eseqexp->exp);*/
-    return nullptr;
-  }
+  
 
   case T::Exp::CALL:
   {
     //fprintf(stdout,"-----------------call exp--------------\n");
     T::CallExp *callexp=(T::CallExp *)exp;
     TEMP::Temp *temp=TEMP::Temp::NewTemp();
+
+    store_temp_into_stack(temp);
     munchArgs(callexp->args);
     TEMP::Label *label=((T::NameExp *)callexp->fun)->name;
-    sprintf(inst,"call %s",TEMP::LabelString(label));
+    sprintf(inst,"call %s",TEMP::LabelString(label).c_str());
     assm=std::string(inst);
-    emit(new AS::OperInstr(assm,F::Callersaves(),nullptr,new AS::Targets(nullptr)));
+    emit(new AS::OperInstr(assm,nullptr,nullptr,new AS::Targets(nullptr)));
+    //recover rsp point
+    while(rspoffset>0)
+    {
+      rspoffset-=wordSize;
+      emit(new AS::OperInstr("popq `d0",new TEMP::TempList(F::R12(),nullptr),nullptr,new AS::Targets(nullptr)));
+    }
+    emit(new AS::OperInstr("popq %r15",nullptr,nullptr,new AS::Targets(nullptr)));
     emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RAX(),nullptr)));
     return temp;
   }
@@ -316,9 +413,6 @@ static TEMP::Temp *munchExp(T::Exp *exp)
   }
   assert(0);
 }
-
-
-
 
 
 }  // namespace CG

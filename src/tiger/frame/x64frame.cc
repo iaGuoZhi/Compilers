@@ -46,7 +46,8 @@ namespace F {
   T::Exp *Exp(Access *access,T::Exp *fp)
   {
     if(access->kind==F::Access::INREG)
-    {
+    { 
+      assert(0);
       F::InRegAccess *regAccess=(F::InRegAccess *)access;
       return new T::TempExp(regAccess->reg);
     }
@@ -112,7 +113,7 @@ namespace F {
     }
   }
 
-  static F::AccessList *callerSavesAccess(F::Frame *frame)
+  /*static F::AccessList *callerSavesAccess(F::Frame *frame)
   {
     TEMP::TempList *callers=Callersaves();
     AccessList *l=nullptr;
@@ -131,7 +132,7 @@ namespace F {
       }
     }
     return l;
-  }
+  }*/
 
   
 
@@ -288,7 +289,8 @@ namespace F {
   }
   TEMP::Temp *FP(void) 
   {
-    return RSP();
+    
+    return R15();
   }
 
   TEMP::Temp *SP(void)
@@ -297,7 +299,7 @@ namespace F {
   }
 
   /*******************************************************/
-
+/*
   TEMP::TempList *SpecialRegs()
   {
     static TEMP::TempList *regs=nullptr;
@@ -307,7 +309,7 @@ namespace F {
     }
     return regs;
   }
-
+*/
   TEMP::Temp *Args(int index){
     switch (index)
     {
@@ -320,13 +322,14 @@ namespace F {
     default:
       assert(0);
     }
+    return nullptr;
   }
 
-  TEMP::TempList *ArgRegs()
+  TEMP::TempList *ArgRegs(void)
   {
-    static TEMP::TempList *regs=nullptr;
-    if(regs==nullptr){
-      regs==new TEMP::TempList(Args(0),
+    static TEMP::TempList *argregs=nullptr;
+    if(argregs==nullptr){
+    argregs=new TEMP::TempList(Args(0),
             new TEMP::TempList(Args(1),
             new TEMP::TempList(Args(2),
             new TEMP::TempList(Args(3),
@@ -334,9 +337,38 @@ namespace F {
             new TEMP::TempList(Args(5),
             nullptr))))));
     }
-    return regs;
+    return argregs;
   }
 
+  void add_register_to_map(TEMP::Map *frameMap)
+  {
+    //specialregs: %rsp %rax
+    frameMap->Enter(FP(),new std::string("%rsp"));
+    frameMap->Enter(SP(),new std::string("%rsp"));
+    frameMap->Enter(RV(),new std::string("%rax"));
+
+    //argregs: %rdi %rsi %rdx %rcx %r8 %r9
+    frameMap->Enter(RDI(),new std::string("%rdi"));
+    frameMap->Enter(RSI(),new std::string("%rsi"));
+    frameMap->Enter(RDX(),new std::string("%rdx"));
+    frameMap->Enter(RCX(),new std::string("%rcx"));
+    frameMap->Enter(R8(),new std::string("%r8"));
+    frameMap->Enter(R9(),new std::string("%r9"));
+
+    //callersaveregs: %r10 %r11
+    frameMap->Enter(R10(),new std::string("%r10"));
+    frameMap->Enter(R11(),new std::string("%r11"));
+
+    //calleesaveregs : %rbx %rbp %r12 %r13 %r14 %r15
+    frameMap->Enter(RBX(),new std::string("%rbx"));
+    frameMap->Enter(RBP(),new std::string("%rbp"));
+    frameMap->Enter(R12(),new std::string("%r12"));
+    frameMap->Enter(R13(),new std::string("%r13"));
+    frameMap->Enter(R14(),new std::string("%r14"));
+    frameMap->Enter(R15(),new std::string("%r15"));
+
+  }
+/*
   TEMP::TempList *Calleesaves()
   {
     static TEMP::TempList *regs=nullptr;
@@ -464,9 +496,24 @@ namespace F {
   {
     return TEMP::Temp::NewTemp();
   }
-
+*/
   /*********************************************************/
-  T::Stm *procEntryExit1(Frame *frame,T::Stm *stm)
+ 
+  char *prolog(F::Frame *frame)
+  {
+    char *out;
+    sprintf(out,"pushl %%ebp\nmovl %%esp, %%ebp\nsubl $%d, %%esp\n", frame->size);
+    return out;
+  }
+
+  char *epilog(F::Frame *frame)
+  {
+    char *out;
+    sprintf(out,"reet\n");
+    return out;
+  }
+
+   /* T::Stm *procEntryExit1(Frame *frame,T::Stm *stm)
   {
     return stm;
   }
@@ -478,20 +525,17 @@ namespace F {
     );
     return body->Splice(body,new AS::InstrList(new AS::OperInstr(std::string("#exit2"),
         nullptr,returnSink,nullptr),nullptr));
-  }
+  }*/
 
   AS::Proc *procEntryExit3(F::Frame *frame,AS::InstrList *body)
   {
-    char buf[100];
-    sprintf(buf, "# exit3\n"
-                    "push %%ebp\n"
-                    "movl %%esp, %%ebp\n"
-                    "subl $%d, %%esp\n",
-                frame->size);
-     std::string epilog = "leave\nret\n";
-     return new AS::Proc(std::string(buf),body,epilog);
+    char buf[100],buf2[100];
+    sprintf(buf, 
+                    "subq $%d, %%rsp\n",
+                frame->size*wordSize);
+    sprintf(buf2,"addq $%d,%%rsp\nret\n",frame->size*wordSize);
+     return new AS::Proc(std::string(buf),body,std::string(buf2));
   }
-
 
   T::Exp *externalCall(std::string s,T::ExpList *args)
   {

@@ -4,10 +4,10 @@
 #include "tiger/codegen/assem.h"
 #include "tiger/frame/frame.h"
 #include "tiger/translate/tree.h"
-
+#include "tiger/regalloc/regalloc.h"
 
 namespace CG {
 
-AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList);
+RA::Result Codegen(F::Frame* f, T::StmList* stmList);
 }
 #endif

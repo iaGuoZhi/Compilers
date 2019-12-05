@@ -21,14 +21,15 @@ std::ifstream infile;
 namespace {
 
 TEMP::Map* temp_map;
-
+static FILE *out_ir=stdout;
+static FILE *out_ast=stdout;
 void do_proc(FILE* out, F::ProcFrag* procFrag) {
   temp_map = TEMP::Map::Empty();
   // Init temp_map
 
   //tree print
   printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
-  (new T::StmList(procFrag->body,nullptr))->Print(stdout);
+ // (new T::StmList(procFrag->body,nullptr))->Print(out_ir);
   printf("-------====IR tree=====-----\n");
    // printf("doProc for function %s:\n", this->frame->label->Name().c_str());
   //  (new T::StmList(proc->body, nullptr))->Print(stdout);
@@ -44,34 +45,36 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   // 	printf("------====Basic block=====-------\n");
   //  }
   stmList = C::TraceSchedule(blo);
-  stmList->Print(stdout);
-  //  stmList->Print(stdout);
+  //stmList->Print(out_ir);
+  //fprintf(out_ir,"************\n\n");
+   // stmList->Print(out_ir);
   //  printf("-------====trace=====-----\n");
 
   // lab5&lab6: code generation
   //assert(0);
-  AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
-  iList->Print(stdout,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
+  //AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList,temp_map); /* 9 */
+  //iList->Print(stdout,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
   //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
-
+  RA::Result allocation= CG::Codegen(procFrag->frame, stmList);
   // lab6: register allocation
   //  printf("----======before RA=======-----\n");
-  RA::Result allocation = RA::RegAlloc(procFrag->frame, iList); /* 11 */
+  //allocation = RA::RegAlloc(procFrag->frame, allocation.il); /* 11 */ 
   //  printf("----======after RA=======-----\n");
   
   AS::Proc* proc = F::procEntryExit3(procFrag->frame, allocation.il);
 
   std::string procName = procFrag->frame->label->Name();
-  fprintf(out, ".globl %s\n", procName.c_str());
+  //fprintf(out, ".text\n");
+  fprintf(out, ".global %s\n", procName.c_str());
   fprintf(out, ".type %s, @function\n", procName.c_str());
   // prologue
+  fprintf(out,"%s:\n",procName.c_str());
   fprintf(out, "%s", proc->prolog.c_str());
   // body
-  proc->body->Print(out,
-                    TEMP::Map::LayerMap(temp_map, allocation.coloring));
+  proc->body->Print(out,TEMP::Map::LayerMap(temp_map, allocation.coloring));
   // epilog
   fprintf(out, "%s", proc->epilog.c_str());
-  fprintf(out, ".size %s, .-%s\n", procName.c_str(), procName.c_str());
+  //fprintf(out, ".size %s, .-%s\n", procName.c_str(), procName.c_str());
 }
 
 void do_str(FILE* out, F::StringFrag* strFrag) {
@@ -80,6 +83,7 @@ void do_str(FILE* out, F::StringFrag* strFrag) {
   int length = strFrag->str.size();
   // it may contains zeros in the middle of string. To keep this work, we need
   // to print all the charactors instead of using fprintf(str)
+  //fprintf(out, ".section .rodata\n");
   fprintf(out, ".long %d\n", length);
   fprintf(out, ".string \"");
   for (int i = 0; i < length; i++) {
@@ -110,7 +114,9 @@ int main(int argc, char** argv) {
   errormsg.Reset(argv[1], infile);
   Parser parser(infile, std::cerr);
   parser.parse();
-
+  out_ast=fopen("ast.txt","w");
+  absyn_root->Print(out_ast,0);
+  fclose(out_ast);
   if (!absyn_root) return 1;
 
   // Lab 6: escape analysis
@@ -124,9 +130,15 @@ int main(int argc, char** argv) {
   printf("----------translate done-------");
   /* convert the filename */
   sprintf(outfile, "%s.s", argv[1]);
+  out_ir=fopen("ir.txt","w");
   out = fopen(outfile, "w");
-
-  fprintf(out, ".text\n");
+  for (F::FragList* fragList = frags; fragList; fragList = fragList->tail){
+    if (fragList->head->kind == F::Frag::Kind::PROC) {
+      (new T::StmList(static_cast<F::ProcFrag*>(fragList->head)->body,nullptr))->Print(out_ir);
+    }
+  }
+  fclose(out_ir);
+    fprintf(out, ".text\n");
   for (F::FragList* fragList = frags; fragList; fragList = fragList->tail){
     if (fragList->head->kind == F::Frag::Kind::PROC) {
       do_proc(out, static_cast<F::ProcFrag*>(fragList->head));
@@ -141,5 +153,6 @@ int main(int argc, char** argv) {
   
 
   fclose(out);
+  
   return 0;
 }
