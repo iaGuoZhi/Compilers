@@ -23,7 +23,8 @@ function readint(any: any) : int =
     let var any := any{any=0}
         var i := readint(any)
      in if any.any
-         then list{first=i,rest=1}
+         then list{first=i,rest=readlist()}
+         else nil
     end
 
  function merge(a: list, b: list) : list =

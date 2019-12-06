@@ -1,8 +1,14 @@
 let 
 
  type any = {any : int}
- var any:=any{any=0}
+ 
+ function readlist() : int =
+    let var any := any{any=0}
+        var i := 0
+     in if any.any
+         then 1
+         else 1
+    end
 in 
-any:=nil;
-printi(any.any)
+printi(1)
 end

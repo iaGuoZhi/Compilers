@@ -29,10 +29,10 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
 
   //tree print
   printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
- // (new T::StmList(procFrag->body,nullptr))->Print(out_ir);
+ (new T::StmList(procFrag->body,nullptr))->Print(out_ir);
   printf("-------====IR tree=====-----\n");
    // printf("doProc for function %s:\n", this->frame->label->Name().c_str());
-  //  (new T::StmList(proc->body, nullptr))->Print(stdout);
+  // (new T::StmList(proc->body, nullptr))->Print(stdout);
   //  printf("-------====IR tree=====-----\n");
 
   T::StmList* stmList = C::Linearize(procFrag->body);
@@ -132,12 +132,7 @@ int main(int argc, char** argv) {
   sprintf(outfile, "%s.s", argv[1]);
   out_ir=fopen("ir.txt","w");
   out = fopen(outfile, "w");
-  for (F::FragList* fragList = frags; fragList; fragList = fragList->tail){
-    if (fragList->head->kind == F::Frag::Kind::PROC) {
-      (new T::StmList(static_cast<F::ProcFrag*>(fragList->head)->body,nullptr))->Print(out_ir);
-    }
-  }
-  fclose(out_ir);
+
     fprintf(out, ".text\n");
   for (F::FragList* fragList = frags; fragList; fragList = fragList->tail){
     if (fragList->head->kind == F::Frag::Kind::PROC) {
@@ -153,6 +148,6 @@ int main(int argc, char** argv) {
   
 
   fclose(out);
-  
+  fclose(out_ir);
   return 0;
 }

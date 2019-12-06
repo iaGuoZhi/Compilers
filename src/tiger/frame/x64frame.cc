@@ -73,26 +73,6 @@ namespace F {
 
   F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist)
   {
-    /*F::Frame *new_frame=new F::Frame(new AccessList(nullptr,nullptr),name,12);
-    F::AccessList *tail=new_frame->formal;
-    int count=0;
-    for(;boollist;boollist=boollist->tail)
-    {
-      bool escape=boollist->head;
-      Access *new_access;
-      if(escape){
-        ++count;
-        new_access=new InFrameAccess((p1+count)*wordSize);
-      }else{
-        assert(0);
-        new_access=new InRegAccess(TEMP::Temp::NewTemp());
-      }
-      tail->tail=new AccessList(new_access,nullptr);
-      tail=tail->tail;
-    }
-    new_frame->formal=new_frame->formal->tail;
-    //F::Frame *new_frame=new F::Frame(makeFormals(boollist,wordSize),name,0);
-    return new_frame;*/
     AccessList *formals=makeFormals(boollist,8);
     F::Frame *new_frame=new F::Frame(formals,name,0);
   }
@@ -113,26 +93,7 @@ namespace F {
     }
   }
 
-  /*static F::AccessList *callerSavesAccess(F::Frame *frame)
-  {
-    TEMP::TempList *callers=Callersaves();
-    AccessList *l=nullptr;
-    AccessList *last=nullptr;
-
-    for(; callers; callers=callers->tail)
-    {
-      F::Access *access=F::allocLocal(frame,false);
-
-      if(!last){
-        last=new AccessList(access,nullptr);
-        l=last;
-      }else{
-        last->tail=new AccessList(access,nullptr);
-        last=last->tail;
-      }
-    }
-    return l;
-  }*/
+  
 
   
 
@@ -368,135 +329,7 @@ namespace F {
     frameMap->Enter(R15(),new std::string("%r15"));
 
   }
-/*
-  TEMP::TempList *Calleesaves()
-  {
-    static TEMP::TempList *regs=nullptr;
-    if(regs=nullptr)
-    {
-      regs=new TEMP::TempList(RBX(),
-           new TEMP::TempList(RBP(),
-           new TEMP::TempList(R12(),
-           new TEMP::TempList(R13(),
-           new TEMP::TempList(R14(),
-           new TEMP::TempList(R15(),
-           nullptr))))));
-    }
-    return regs;
-  }
 
-  TEMP::TempList *Callersaves()
-  {
-    static TEMP::TempList *regs=nullptr;
-    if(regs=nullptr)
-    {
-      regs=new TEMP::TempList(R10(),
-           new TEMP::TempList(R11(),
-           nullptr));
-    }
-    return regs;
-  }
-
-  TEMP::TempList *Registers()
-  {
-    static TEMP::TempList *registers=nullptr;
-    if(registers==nullptr)
-    {
-      registers=new TEMP::TempList(RV(),
-                new TEMP::TempList(RDI(),
-                new TEMP::TempList(RSI(),
-                new TEMP::TempList(RDX(),
-                new TEMP::TempList(RCX(),
-                new TEMP::TempList(R8(),
-                new TEMP::TempList(R9(),
-                new TEMP::TempList(R10(),
-                new TEMP::TempList(R11(),
-                new TEMP::TempList(R12(),
-                new TEMP::TempList(R13(),
-                new TEMP::TempList(R14(),
-                new TEMP::TempList(R15(),
-                new TEMP::TempList(RSP(),
-                new TEMP::TempList(RBP(),
-                new TEMP::TempList(RBX(),
-                nullptr))))))))))))))));
-    }
-    return registers;
-  }
-
-  void InitTempMap()
-  {
-    //specialregs: %rsp %rax
-    frameMap->Enter(FP(),new std::string("%rsp"));
-    frameMap->Enter(SP(),new std::string("%rsp"));
-    frameMap->Enter(RV(),new std::string("%rax"));
-
-    //argregs: %rdi %rsi %rdx %rcx %r8 %r9
-    frameMap->Enter(RDI(),new std::string("%rdi"));
-    frameMap->Enter(RSI(),new std::string("%rsi"));
-    frameMap->Enter(RDX(),new std::string("%rdx"));
-    frameMap->Enter(RCX(),new std::string("%rcx"));
-    frameMap->Enter(R8(),new std::string("%r8"));
-    frameMap->Enter(R9(),new std::string("%r9"));
-
-    //callersaveregs: %r10 %r11
-    frameMap->Enter(R10(),new std::string("%r10"));
-    frameMap->Enter(R11(),new std::string("%r11"));
-
-    //calleesaveregs : %rbx %rbp %r12 %r13 %r14 %r15
-    frameMap->Enter(RBX(),new std::string("%rbx"));
-    frameMap->Enter(RBP(),new std::string("%rbp"));
-    frameMap->Enter(R12(),new std::string("%r12"));
-    frameMap->Enter(R13(),new std::string("%r13"));
-    frameMap->Enter(R14(),new std::string("%r14"));
-    frameMap->Enter(R15(),new std::string("%r15"));
-
-    //initialize specialregs
-    if(specialregs==nullptr)
-    {
-      specialregs=TEMP::Map::Empty();
-      specialregs->Enter(FP(),new std::string("%rbp"));
-      specialregs->Enter(RV(),new std::string("%rax"));
-      specialregs->Enter(SP(),new std::string("%rsp"));
-    }
-
-    //initialize argregs
-    if(argregs==nullptr)
-    {
-      argregs=TEMP::Map::Empty();
-      argregs->Enter(RDI(),new std::string("%rdi"));
-      argregs->Enter(RSI(),new std::string("%rsi"));
-      argregs->Enter(RDX(),new std::string("%rdx"));
-      argregs->Enter(RCX(),new std::string("%rcx"));
-      argregs->Enter(R8(),new std::string("%r8"));
-      argregs->Enter(R9(),new std::string("%r9"));
-    }
-
-    //initialize calleesaveregs
-    if(calleesaves==nullptr)
-    {
-      calleesaves=TEMP::Map::Empty();
-      calleesaves->Enter(RBP(),new std::string("%rbp"));
-      calleesaves->Enter(RBX(),new std::string("%rbx"));
-      calleesaves->Enter(R12(),new std::string("%r12"));
-      calleesaves->Enter(R13(),new std::string("%r13"));
-      calleesaves->Enter(R14(),new std::string("%r14"));
-      calleesaves->Enter(R15(),new std::string("%r15"));
-    }
-
-    //initialize callersaveregs
-    if(calleesaves==nullptr)
-    {
-      callersaves=TEMP::Map::Empty();
-      callersaves->Enter(R10(),new std::string("%r10"));
-      callersaves->Enter(R11(),new std::string("%r11"));
-    }
-    
-  }
-  TEMP::Temp *Zero(void)
-  {
-    return TEMP::Temp::NewTemp();
-  }
-*/
   /*********************************************************/
  
   char *prolog(F::Frame *frame)
@@ -530,8 +363,8 @@ namespace F {
   AS::Proc *procEntryExit3(F::Frame *frame,AS::InstrList *body)
   {
     char buf[100],buf2[100];
-    sprintf(buf, 
-                    "subq $%d, %%rsp\n",
+    sprintf(buf,  
+                    ".set %s_framesize, %d\nsubq $%d, %%rsp\n",frame->label->Name().c_str(),frame->size*wordSize,
                 frame->size*wordSize);
     sprintf(buf2,"addq $%d,%%rsp\nret\n",frame->size*wordSize);
      return new AS::Proc(std::string(buf),body,std::string(buf2));

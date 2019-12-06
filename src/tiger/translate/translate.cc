@@ -162,12 +162,10 @@ class ExExp : public Exp {
     return new T::ExpStm(this->exp);
   }
   Cx UnCx() const override {
-    Cx *cx;
-    
-    cx->stm=new T::CjumpStm(T::NE_OP,exp,new T::ConstExp(0),nullptr,nullptr);
-    cx->trues=new PatchList( &((T::CjumpStm *)(cx->stm))->true_label,nullptr);
-    cx->falses=new PatchList(&((T::CjumpStm *)(cx->stm))->false_label,nullptr);
-    return *cx;
+    T::Stm *stm=new T::CjumpStm(T::NE_OP,exp,new T::ConstExp(0),nullptr,nullptr);
+    return TR::Cx(new PatchList( &((T::CjumpStm *)(stm))->true_label,nullptr),
+    new PatchList(&((T::CjumpStm *)(stm))->false_label,nullptr),
+    stm);
   }
 };
 
@@ -306,6 +304,7 @@ namespace {
   }
 
   TY::Ty *ty = tenv->Look(params->head->typ);
+  ty=ty->ActualTy();
   assert(ty);
   return new TY::TyList(ty->ActualTy(), make_formal_tylist(tenv, params->tail));
 }
@@ -395,7 +394,9 @@ TR::ExpAndTy FieldVar::Translate(S::Table<E::EnvEntry> *venv,
       fprintf(stderr,"%s\n",sym->Name().c_str());
       T::Exp *addr=new T::BinopExp(T::PLUS_OP,recordExp->UnEx(),new T::ConstExp(index*F::wordSize));
       TR::Exp *memExp=new TR::ExExp(new T::MemExp(addr));
-      return TR::ExpAndTy(memExp ,recordfields->head->ty->ActualTy());
+      //assert(recordfields->head->ty->kind==TY::Ty::INT);
+      fprintf(stdout,"fieldvar normal))))))))))))))))))\n");
+      return TR::ExpAndTy(memExp ,recordfields->head->ty);
     }
     index++;
   }
@@ -430,7 +431,7 @@ TR::ExpAndTy SubscriptVar::Translate(S::Table<E::EnvEntry> *venv,
   T::Exp *addr=new T::BinopExp(T::PLUS_OP,varExp->UnEx(),offset);
   
   TR::Exp *memExp=new TR::ExExp(new T::MemExp(addr));
-  return TR::ExpAndTy(memExp,((TY::ArrayTy *)varTy)->ty);
+  return TR::ExpAndTy(memExp,((TY::ArrayTy *)varTy));
 }
 
 TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
@@ -439,7 +440,7 @@ TR::ExpAndTy VarExp::Translate(S::Table<E::EnvEntry> *venv,
   // TODO: Put your codes here (lab5).
   fprintf(stdout,"------------varexp--------------\n");
   TR::ExpAndTy varExpAndTy=this->var->Translate(venv,tenv,level,label);
-  varExpAndTy.ty=varExpAndTy.ty->ActualTy();
+ // varExpAndTy.ty=varExpAndTy.ty->ActualTy();
   return varExpAndTy;
 }
 
@@ -503,7 +504,6 @@ TR::ExpAndTy CallExp::Translate(S::Table<E::EnvEntry> *venv,
     );
    
       t_explist=new TR::ExpList(argExpAndTy.exp,t_explist);
-      argExpAndTy.exp->UnEx()->Print(stdout,0);
   }
   
   if(funcentry->level->parent)
@@ -706,7 +706,6 @@ TR::ExpAndTy IfExp::Translate(S::Table<E::EnvEntry> *venv,
   TEMP::Temp *temp=TEMP::Temp::NewTemp();
   TR::ExpAndTy testExpAndTy =this->test->Translate(venv,tenv,level,label);
   TR::ExpAndTy thenExpAndTY=this->then->Translate(venv,tenv,level,label);
-  
   TR::Cx testCx= (testExpAndTy.exp->UnCx());
   TR::do_patch(testCx.trues,t);
   TR::do_patch(testCx.falses,f);
@@ -780,7 +779,6 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
   // TODO: Put your codes here (lab5).
   fprintf(stdout,"------------forexp--------------\n");
   venv->BeginScope();
-  tenv->BeginScope();
   // i enter
   E::VarEntry varentry(TY::IntTy::Instance(),true);
   TR::ExpAndTy lowExpAndTy =this->lo->Translate(venv,tenv,level,label);
@@ -794,7 +792,6 @@ TR::ExpAndTy ForExp::Translate(S::Table<E::EnvEntry> *venv,
 
   TR::ExpAndTy bodyExpAndTy =this->body->Translate(venv,tenv,level,done);
 
-  tenv->EndScope();
   venv->EndScope();
 
   TEMP::Label *lo=TEMP::NewLabel();
@@ -901,10 +898,11 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
                                 TEMP::Label *label) const {
   // TODO: Put your codes here (lab5).
   fprintf(stdout,"------------functiondec--------------\n");
-  TY::Ty *result_ty;
+  TY::Ty *result_ty,*formal;
   FunDecList *funList;
   A::FunDec *funDec;
-  A::FieldList *fieldlist;
+  A::FieldList *fieldlist,*params;
+  A::Field *field;
   E::FunEntry *funcentry;
   TY::TyList *tylist;
 
@@ -914,6 +912,7 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     int count=0;
     funDec = funList->head;
     result_ty = TY::VoidTy::Instance();
+    //check fieldlist
     if (funDec->result&&(funDec->result->Name().compare("")!=0)) {
       result_ty = tenv->Look(funDec->result);
     }
@@ -921,7 +920,6 @@ TR::Exp *FunctionDec::Translate(S::Table<E::EnvEntry> *venv,
     //
     tylist = make_formal_tylist(tenv, funDec->params);
   
-    TY::TyList *formalTys=make_formal_tylist(tenv,funDec->params);
     TEMP::Label *new_label=TEMP::NewLabel();
     U::BoolList *escape_list=make_escape_list(funDec->params);
     TR::Level *new_level=level->NewLevel(level,new_label,escape_list);
@@ -963,7 +961,7 @@ TR::Exp *VarDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
   fprintf(stdout,"------------vardec--------------\n");
   TR::ExpAndTy decExpAndTy=this->init->Translate(venv,tenv,level,label);
   TR::Access *access=level->AllocLocal(true);
-  if(this->typ)
+  if(this->typ&&this->typ->Name().compare("")!=0)
   {
     TY::Ty *existty=tenv->Look(this->typ);
     existty=existty->ActualTy();
@@ -995,19 +993,19 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
 
   tyList = types;
   while(tyList) {
-    TY::Ty *ty = tenv->Look(tyList->head->name);
+    TY::Ty *ty = tenv->Look(tyList->head->name); 
     nameTy=tyList->head;
     switch (nameTy->ty->kind)
     {
     case A::Ty::NAME:
-      ((TY::NameTy*)ty)->sym=((A::NameTy*)nameTy->ty)->name;
+      ((TY::NameTy*)ty)->ty=tyList->head->ty->Translate(tenv);
       
       break;
     case A::Ty::RECORD:
-      ty=new TY::RecordTy(make_fieldlist(tenv,((A::RecordTy*)nameTy->ty)->record));
+      ((TY::NameTy*)ty)->ty=new TY::RecordTy(make_fieldlist(tenv,((A::RecordTy*)nameTy->ty)->record));
       break;
     default:
-      ty=new TY::ArrayTy(tenv->Look(((A::ArrayTy*)nameTy->ty)->array));
+      ((TY::NameTy*)ty)->ty=new TY::ArrayTy(tenv->Look(((A::ArrayTy*)nameTy->ty)->array));
       break;
     }
     //assert(ty->kind==TY::Ty::NAME);
@@ -1015,45 +1013,7 @@ TR::Exp *TypeDec::Translate(S::Table<E::EnvEntry> *venv, S::Table<TY::Ty> *tenv,
     tyList = tyList->tail;
   }
   
-  /*//check record type and array type
-  tyList=types;
-  while(tyList)
-  {
-    nameTy=tyList->head;
-    switch (nameTy->ty->kind)
-    {
-    case A::Ty::NAME:
-      break;
-    case A::Ty::RECORD:
-    {
-      idtype=tenv->Look(nameTy->name);
-      TY::RecordTy *recordTy=(TY::RecordTy *) idtype;
-      recordTy->fields=
-      break;
-    }
-    
-    default:
-      break;
-    }
-  }*/
-  //check recursive
-  /*
-  tyList=types;
-  while(tyList) {
-    TY::Ty *ty = tenv->Look(tyList->head->name);
-    if(ty->kind == TY::Ty::NAME) {
-      TY::Ty *tyTy = ((TY::NameTy *)ty)->ty;
-      while (tyTy->kind == TY::Ty::NAME)
-      {
-        TY::NameTy *nameTy = (TY::NameTy *)tyTy;
-        if(!nameTy->sym->Name().compare(tyList->head->name->Name())){
-          return new TR::ExExp(new T::ConstExp(0));
-        }
-        tyTy = nameTy->ty;
-      }
-    }
-    tyList = tyList->tail;
-  }*/
+  
   return new TR::ExExp(new T::ConstExp(0));
 }
 
