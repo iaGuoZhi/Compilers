@@ -37,10 +37,10 @@ G::Graph<AS::Instr>* AssemFlowGraph(AS::InstrList* il, F::Frame* f) {
   // TODO: Put your codes here (lab6).
   G::Graph<AS::Instr > *instrGraph=new G::Graph<AS::Instr>();
   AS::InstrList *instrList=il;
-  G::NodeList<AS::Instr> *assemNodeList,*labelNodeList;
-  AS::Instr *instr,*operinstr;
-  AS::OperInstr *operInstr;
-  AS::LabelInstr *labelInstr;
+  G::NodeList<AS::Instr> *assemNodeList=nullptr,*labelNodeList=nullptr;
+  AS::Instr *instr=nullptr,*operinstr=nullptr;
+  AS::OperInstr *operInstr=nullptr;
+  AS::LabelInstr *labelInstr=nullptr;
 
   //put instrs in the graph
   for(instrList;instrList;instrList=instrList->tail)

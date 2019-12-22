@@ -356,7 +356,8 @@ namespace F {
            new TEMP::TempList(RCX(),
            new TEMP::TempList(RDX(),
            new TEMP::TempList(RBP(),
-           nullptr))))))));
+           new TEMP::TempList(RBX(),
+           nullptr)))))))));
   }
   TEMP::TempList *hardReg()
   {

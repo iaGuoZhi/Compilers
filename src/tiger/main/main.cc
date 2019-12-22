@@ -55,6 +55,7 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   //AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList,temp_map); /* 9 */
    //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
    AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
+   out_ir=fopen("ir.txt","w");
   iList->Print(out_ir,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
    fclose(out_ir);
  
@@ -131,7 +132,6 @@ int main(int argc, char** argv) {
   printf("----------translate done-------");
   /* convert the filename */
   sprintf(outfile, "%s.s", argv[1]);
-  out_ir=fopen("ir.txt","w");
   out = fopen(outfile, "w");
 
     fprintf(out, ".text\n");
