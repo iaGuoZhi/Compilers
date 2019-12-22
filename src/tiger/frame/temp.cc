@@ -80,4 +80,56 @@ void Map::DumpMap(FILE *out) {
   }
 }
 
+bool tempEqual(TEMP::TempList *t1,TEMP::TempList *t2)
+{
+  if(t1==nullptr&&t2==nullptr)
+    return true;
+  if(t1==nullptr||t2==nullptr)
+    return false;
+  if(t1->head==t2->head)
+    return tempEqual(t1->tail,t2->tail);
+  return false;
+}
+
+bool inList(TEMP::TempList *t1,TEMP::Temp *t)
+{
+  assert(t);
+  if(t1==nullptr)
+    return false;
+  if(t1->head==t)
+    return true;
+  return inList(t1->tail,t);
+}
+
+TempList *unionTempList(TempList *t1,TempList *t2)
+{
+  TempList *insertList=t2;
+  TempList *baseList=t1;
+  for(insertList;insertList;insertList=insertList->tail)
+  {
+    if(inList(baseList,insertList->head))
+      continue;
+    baseList=new TempList(insertList->head,baseList);
+  }
+  return baseList;  
+}
+
+TempList *subTempList(TempList *t1,TempList *t2)
+{
+  TempList *baseListLast=t1;
+  TempList *baseList=nullptr;
+  for(baseListLast;baseListLast!=nullptr;baseListLast=baseListLast->tail)
+  {
+    TEMP::Temp *test=baseListLast->head;
+    if(inList(t2,baseListLast->head))
+    {
+      continue;
+    }else
+    {
+    baseList=new TempList(baseListLast->head,baseList);
+    }
+  }
+  return baseList;
+}
+
 }  // namespace TEMP

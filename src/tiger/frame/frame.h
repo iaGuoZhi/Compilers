@@ -108,6 +108,7 @@ F::Frame *newFrame(TEMP::Label *name,U::BoolList *boollist);
 class AccessList *getFormals(Frame *frame);
 TEMP::Label getName(Frame *frame);
 Access *allocLocal(Frame *frame,bool escape);
+int spill(Frame *frame);
 T::Exp *Exp(Access *access,T::Exp *fp);
 
 TEMP::Temp *SP(void);
@@ -140,7 +141,12 @@ void add_register_to_map(TEMP::Map *frameMap);
 //TEMP::TempList *Calleesaves(void);
 //TEMP::TempList *Callersaves(void);
 //TEMP::TempList *registers(void);
-
+//used in liveness analysis
+TEMP::TempList *callerSaveRegs();
+TEMP::TempList *calleeSaveRegs();
+TEMP::TempList *hardReg();
+int hardRegSize();
+std::string hardRegsString(int index);
 
 //static TEMP::Map *frameMap;
 //void InitTempMap();

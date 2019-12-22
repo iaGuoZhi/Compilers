@@ -1,8 +1,8 @@
 let 
 
-function test(a:int,b:int,c:int)=
-    printi(a+b-c)
+function test(a:int)=
+    printi(a)
 
 in 
-    test(2183,999,520)
+    test(2183)
 end

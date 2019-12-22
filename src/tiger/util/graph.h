@@ -109,7 +109,6 @@ Node<T>* Graph<T>::NewNode(T* info) {
   NodeList<T>* p = new NodeList<T>(n, nullptr);
   n->mygraph_ = this;
   n->mykey_ = this->nodecount++;
-
   if (this->mylast == nullptr)
     this->mynodes = this->mylast = p;
   else
@@ -219,6 +218,35 @@ NodeList<T>* NodeList<T>::CatList(NodeList<T>* a, NodeList<T>* b) {
     return b;
   else
     return new NodeList<T>(a->head, CatList(a->tail, b));
+}
+
+// provide sub and union func for regalloc
+//a+b
+template<class T>
+NodeList<T>* unionNodeList(NodeList<T>*a,NodeList<T>*b)
+{
+  NodeList<T> *baseList=a,*insertList=b;
+  for(;insertList;insertList=insertList->tail)
+  {
+    if(baseList->InNodeList(insertList->head))
+      continue;
+    baseList=new NodeList<T>(insertList->head,baseList);
+  }
+  return baseList;
+}
+//a-b
+template<class T>
+NodeList<T>* subNodeList(NodeList<T>*a,NodeList<T>*b)
+{
+  NodeList<T> *baseList=nullptr;
+  NodeList<T> *baseListLast=a;
+  for(baseListLast;baseListLast;baseListLast=baseListLast->tail)
+  {
+    if(b->InNodeList(baseListLast->head))
+      continue;
+    baseList=new NodeList<T>(baseListLast->head,baseList);
+  }
+  return baseList;
 }
 
 /* The type of "tables" mapping graph-nodes to information */

@@ -15,7 +15,7 @@ class Table {
   void Dump(void (*show)(KeyType *key, ValueType *value));
 
  protected:
-  static const unsigned long TABSIZE = 12700;
+  static const unsigned long TABSIZE = 127;
   class Binder {
    public:
     KeyType *key;

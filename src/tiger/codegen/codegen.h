@@ -8,6 +8,6 @@
 
 namespace CG {
 
-RA::Result Codegen(F::Frame* f, T::StmList* stmList);
+AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList);
 }
 #endif

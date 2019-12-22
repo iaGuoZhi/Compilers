@@ -29,7 +29,7 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
 
   //tree print
   printf("---------doProc for function--------- %s:\n",procFrag->frame->label->Name().c_str());
- (new T::StmList(procFrag->body,nullptr))->Print(out_ir);
+ //(new T::StmList(procFrag->body,nullptr))->Print(out_ir);
   printf("-------====IR tree=====-----\n");
    // printf("doProc for function %s:\n", this->frame->label->Name().c_str());
   // (new T::StmList(proc->body, nullptr))->Print(stdout);
@@ -53,14 +53,15 @@ void do_proc(FILE* out, F::ProcFrag* procFrag) {
   // lab5&lab6: code generation
   //assert(0);
   //AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList,temp_map); /* 9 */
-  //iList->Print(stdout,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
-  //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
-  RA::Result allocation= CG::Codegen(procFrag->frame, stmList);
+   //AS_printInstrList(stdout, iList, Temp::Map::LayerMap(temp_map, Temp_name()));
+   AS::InstrList* iList = CG::Codegen(procFrag->frame, stmList); /* 9 */
+  iList->Print(out_ir,TEMP::Map::LayerMap(temp_map, TEMP::Map::Name()));
+   fclose(out_ir);
+ 
   // lab6: register allocation
   //  printf("----======before RA=======-----\n");
-  //allocation = RA::RegAlloc(procFrag->frame, allocation.il); /* 11 */ 
+  RA::Result allocation = RA::RegAlloc(procFrag->frame, iList); /* 11 */ 
   //  printf("----======after RA=======-----\n");
-  
   AS::Proc* proc = F::procEntryExit3(procFrag->frame, allocation.il);
 
   std::string procName = procFrag->frame->label->Name();
@@ -121,7 +122,7 @@ int main(int argc, char** argv) {
 
   // Lab 6: escape analysis
   // If you have implemented escape analysis, uncomment this
-  // ESC::FindEscape(absyn_root); /* set varDec's escape field */
+  ESC::FindEscape(absyn_root); /* set varDec's escape field */
 
   // Lab5: translate IR tree
   printf("------translate-------------");
@@ -148,6 +149,5 @@ int main(int argc, char** argv) {
   
 
   fclose(out);
-  fclose(out_ir);
   return 0;
 }

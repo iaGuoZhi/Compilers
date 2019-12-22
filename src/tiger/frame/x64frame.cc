@@ -1,5 +1,5 @@
 #include "tiger/frame/frame.h"
-
+#include<vector>
 #include <string>
 
 namespace F {
@@ -93,6 +93,12 @@ namespace F {
     }
   }
 
+  int spill(Frame *frame)
+  {
+    frame->size++;
+    int offset=-(frame->size*F::wordSize);
+    return offset;
+  }
   
 
   
@@ -304,7 +310,7 @@ namespace F {
   void add_register_to_map(TEMP::Map *frameMap)
   {
     //specialregs: %rsp %rax
-    frameMap->Enter(FP(),new std::string("%rsp"));
+    frameMap->Enter(FP(),new std::string("%r15"));
     frameMap->Enter(SP(),new std::string("%rsp"));
     frameMap->Enter(RV(),new std::string("%rax"));
 
@@ -330,15 +336,62 @@ namespace F {
 
   }
 
-  /*********************************************************/
- 
-  char *prolog(F::Frame *frame)
+  TEMP::TempList *callerSaveRegs()
   {
-    char *out;
-    sprintf(out,"pushl %%ebp\nmovl %%esp, %%ebp\nsubl $%d, %%esp\n", frame->size);
-    return out;
+    return new TEMP::TempList(R10(),
+           new TEMP::TempList(R12(),
+           new TEMP::TempList(R13(),
+           new TEMP::TempList(R14(),
+           new TEMP::TempList(R11(),
+           new TEMP::TempList(R15(),nullptr))))));
   }
 
+  TEMP::TempList *calleeSaveRegs()
+  {
+       return new TEMP::TempList(R8(),
+           new TEMP::TempList(R9(),
+           new TEMP::TempList(RDI(),
+           new TEMP::TempList(RSI(),
+           new TEMP::TempList(RAX(),
+           new TEMP::TempList(RCX(),
+           new TEMP::TempList(RDX(),
+           new TEMP::TempList(RBP(),
+           nullptr))))))));
+  }
+  TEMP::TempList *hardReg()
+  {
+    return new TEMP::TempList(R8(),
+           new TEMP::TempList(R9(),
+           new TEMP::TempList(R10(),
+           new TEMP::TempList(R12(),
+           new TEMP::TempList(R13(),
+           new TEMP::TempList(R14(),
+           new TEMP::TempList(R11(),
+           new TEMP::TempList(R15(),
+           new TEMP::TempList(RDI(),
+           new TEMP::TempList(RSI(),
+           new TEMP::TempList(RAX(),
+           new TEMP::TempList(RBX(),
+           new TEMP::TempList(RCX(),
+           new TEMP::TempList(RDX(),
+           nullptr))))))))))))));
+  }
+
+std::vector<std::string> hardregs={"%none","%r8","%r9","%r10","%r12","%r13","%r14","%r11","%r15",
+              "%rdi","%rsi","%rax","%rbx","%rcx","%rdx"};
+  std::string hardRegsString(int index)
+  {
+    assert(index<=14);
+    return hardregs[index];
+  }
+
+  int hardRegSize()
+  {
+    return 15;
+  }
+  /*********************************************************/
+ 
+  
   char *epilog(F::Frame *frame)
   {
     char *out;
@@ -364,7 +417,7 @@ namespace F {
   {
     char buf[100],buf2[100];
     sprintf(buf,  
-                    ".set %s_framesize, %d\nsubq $%d, %%rsp\n",frame->label->Name().c_str(),frame->size*wordSize,
+                    ".set %s_framesize, %d\nleaq (%%rsp), %%r15\nsubq $%d, %%rsp\n",frame->label->Name().c_str(),frame->size*wordSize,
                 frame->size*wordSize);
     sprintf(buf2,"addq $%d,%%rsp\nret\n",frame->size*wordSize);
      return new AS::Proc(std::string(buf),body,std::string(buf2));

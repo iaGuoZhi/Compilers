@@ -17,7 +17,11 @@ class MoveList {
   MoveList(G::Node<TEMP::Temp>* src, G::Node<TEMP::Temp>* dst, MoveList* tail)
       : src(src), dst(dst), tail(tail) {}
 };
-
+//a+b
+MoveList *unionMoveList(MoveList *a,MoveList *b);
+//a-b
+MoveList *subMoveList(MoveList *a,MoveList *b);
+bool inMoveList(G::Node<TEMP::Temp>* src, G::Node<TEMP::Temp>* dst, MoveList* movelist);
 class LiveGraph {
  public:
   G::Graph<TEMP::Temp>* graph;

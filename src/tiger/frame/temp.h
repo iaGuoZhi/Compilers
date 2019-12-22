@@ -50,6 +50,15 @@ class TempList {
 
   TempList(Temp *h, TempList *t) : head(h), tail(t) {}
 };
+//t1+t2
+TempList *unionTempList(TempList *t1,TempList *t2);
+//t1-t2
+TempList *subTempList(TempList *t1,TempList *t2);
+
+bool tempEqual(TEMP::TempList *t1,TEMP::TempList *t2);
+
+bool inList(TEMP::TempList *t1,TEMP::Temp *t);
+
 
 class LabelList {
  public:
