@@ -101,16 +101,7 @@ namespace F {
   }
   
 
-  
-
-
-
-  /****************************************************/
-  static TEMP::Map *specialregs=nullptr;
-  static TEMP::Map *argregs=nullptr;
-  static TEMP::Map *calleesaves=nullptr;
-  static TEMP::Map *callersaves=nullptr;
-
+ 
   /***************************************************/
   TEMP::Temp *RSP(void){
     static TEMP::Temp *rsp=nullptr;

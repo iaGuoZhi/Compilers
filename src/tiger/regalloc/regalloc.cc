@@ -137,7 +137,7 @@ static void Build(){
     int *color=(int *)malloc(sizeof(int));
     *degree=0;
     *color=0;
-    for(RegNodeList *cur=nodes->head->Succ();cur;cur=cur->tail)
+    for(RegNodeList *node=nodes->head->Succ();node;node=node->tail)
     {
       (*degree)++;
     }
@@ -525,40 +525,40 @@ static TEMP::Map *AssignRegisters(LIVE::LiveGraph graph)
 static void RewriteProgram(F::Frame *frame,AS::InstrList *instrlist)
 {
   unSpillTemps=nullptr;
-  AS::InstrList *il=instrlist,*l=nullptr,*last=nullptr,*next=nullptr,*new_instr=nullptr;
-  int off; 
+  AS::InstrList *il=instrlist,*l=nullptr,*last_il=nullptr,*next_il=nullptr,*new_il=nullptr;
+  int access; 
   char inst[MAX_INST_LEN];
   while(spilledNodes){
-    RegNode *cur=spilledNodes->head;
+    RegNode *node=spilledNodes->head;
     spilledNodes=spilledNodes->tail;
-    TEMP::Temp *c=cur->NodeInfo();
-    off=F::spill(frame);
+    TEMP::Temp *temp=node->NodeInfo();
+    access=F::spill(frame);
     l=il;
-    last=nullptr;
+    last_il=nullptr;
     while(l){
-      next=l->tail;
+      next_il=l->tail;
      //c的每次使用之前插入一条取数指令
-     if(tempUse(l->head)!=nullptr&&TEMP::inList(tempUse(l->head),c))
+     if(tempUse(l->head)!=nullptr&&TEMP::inList(tempUse(l->head),temp))
      {
-       sprintf(inst,"movq %d(`s0), `d0",off);
-       new_instr=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(c,nullptr),new TEMP::TempList(F::R15(),nullptr)),l);
-       if(last){
-         last->tail=new_instr;
+       sprintf(inst,"movq %d(`s0), `d0",access);
+       new_il=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::R15(),nullptr)),l);
+       if(last_il){
+         last_il->tail=new_il;
        }
        else{
-         il=new_instr;
+         il=new_il;
        }
      }
-     last=l;
+     last_il=l;
      //c的每次定值之后插入一条存储指令
-     if(tempDef(l->head)!=nullptr&&TEMP::inList(tempDef(l->head),c))
+     if(tempDef(l->head)!=nullptr&&TEMP::inList(tempDef(l->head),temp))
      {
-       sprintf(inst,"movq `s0, %d(`d0)",off);
-       new_instr=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(F::R15(),nullptr),new TEMP::TempList(c,nullptr)),next);
-       l->tail=new_instr;  
-       last=l->tail;
+       sprintf(inst,"movq `s0, %d(`d0)",access);
+       new_il=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(F::R15(),nullptr),new TEMP::TempList(temp,nullptr)),next_il);
+       l->tail=new_il;  
+       last_il=l->tail;
      }
-     l=next;
+     l=next_il;
     }
   }
   fprintf(stdout,"hello\n");
