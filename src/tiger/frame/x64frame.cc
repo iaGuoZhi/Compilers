@@ -266,17 +266,7 @@ namespace F {
   }
 
   /*******************************************************/
-/*
-  TEMP::TempList *SpecialRegs()
-  {
-    static TEMP::TempList *regs=nullptr;
-    if(regs==nullptr)
-    {
-      regs=new TEMP::TempList(SP(),new TEMP::TempList(RV(),new TEMP::TempList(FP(),nullptr)));
-    }
-    return regs;
-  }
-*/
+
   TEMP::Temp *Args(int index){
     switch (index)
     {
@@ -338,67 +328,63 @@ namespace F {
 
   TEMP::TempList *callerSaveRegs()
   {
-    return new TEMP::TempList(R10(),
-           new TEMP::TempList(R12(),
-           new TEMP::TempList(R13(),
-           new TEMP::TempList(R14(),
+    return new TEMP::TempList(R8(),
+           new TEMP::TempList(R9(),
+           new TEMP::TempList(R10(),
            new TEMP::TempList(R11(),
-           new TEMP::TempList(R15(),nullptr))))));
+           new TEMP::TempList(RDI(),
+           new TEMP::TempList(RSI(),
+           new TEMP::TempList(RDX(),
+           new TEMP::TempList(RCX(),
+           new TEMP::TempList(RAX(),
+           nullptr)))))))));
   }
 
   TEMP::TempList *calleeSaveRegs()
   {
-       return new TEMP::TempList(R8(),
-           new TEMP::TempList(R9(),
-           new TEMP::TempList(RDI(),
-           new TEMP::TempList(RSI(),
-           new TEMP::TempList(RAX(),
-           new TEMP::TempList(RCX(),
-           new TEMP::TempList(RDX(),
-           new TEMP::TempList(RBP(),
-           new TEMP::TempList(RBX(),
-           nullptr)))))))));
-  }
-  TEMP::TempList *hardReg()
-  {
-    return new TEMP::TempList(R8(),
-           new TEMP::TempList(R9(),
-           new TEMP::TempList(R10(),
+       return new TEMP::TempList(RBX(),
+            new TEMP::TempList(RBP(),
            new TEMP::TempList(R12(),
            new TEMP::TempList(R13(),
            new TEMP::TempList(R14(),
-           new TEMP::TempList(R11(),
            new TEMP::TempList(R15(),
+           nullptr))))));
+  }
+  TEMP::TempList *hardReg()
+  {
+    return new TEMP::TempList(RBX(),
+           new TEMP::TempList(R12(),
+           new TEMP::TempList(R13(),
+           new TEMP::TempList(R14(),
+           new TEMP::TempList(R15(),
+           new TEMP::TempList(RBP(),
+           new TEMP::TempList(R8(),
+           new TEMP::TempList(R9(),
+           new TEMP::TempList(R10(),
+           new TEMP::TempList(R11(),
            new TEMP::TempList(RDI(),
            new TEMP::TempList(RSI(),
-           new TEMP::TempList(RAX(),
-           new TEMP::TempList(RBX(),
-           new TEMP::TempList(RCX(),
            new TEMP::TempList(RDX(),
-           nullptr))))))))))))));
+           new TEMP::TempList(RCX(),
+           new TEMP::TempList(RAX(),
+           nullptr)))))))))))))));
   }
 
-std::vector<std::string> hardregs={"%none","%r8","%r9","%r10","%r12","%r13","%r14","%r11","%r15",
-              "%rdi","%rsi","%rax","%rbx","%rcx","%rdx"};
+std::vector<std::string> hardregs={"%none","%rbx","%r12","%r13","%r14","%r15","%rbp","%r8","%r9","%r10","%r11",
+              "%rdi","%rsi","%rdx","%rcx","%rax"};
   std::string hardRegsString(int index)
   {
-    assert(index<=14);
+    assert(index<hardRegSize());
     return hardregs[index];
   }
 
   int hardRegSize()
   {
-    return 15;
+    return 16;
   }
   /*********************************************************/
  
   
-  char *epilog(F::Frame *frame)
-  {
-    char *out;
-    sprintf(out,"reet\n");
-    return out;
-  }
 
    /* T::Stm *procEntryExit1(Frame *frame,T::Stm *stm)
   {

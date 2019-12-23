@@ -1,6 +1,7 @@
 #include "tiger/regalloc/regalloc.h"
 
-#define K 14
+#define K F::hardRegSize()-1
+#define MAX_INST_LEN 60
 #define RegNode G::Node<TEMP::Temp>
 #define RegNodeList G::NodeList<TEMP::Temp>
 
@@ -29,6 +30,9 @@ static void SelectSpill();
 static void AssignColors();
 static TEMP::Map *AssignRegisters(LIVE::LiveGraph graph);
 static void RewriteProgram(F::Frame *frame,AS::InstrList *instrlist);
+static void deleteEqualMoves(AS::InstrList *instrlist);
+static TEMP::TempList *tempUse(AS::Instr *instr);
+static TEMP::TempList *tempDef(AS::Instr *instr);
 
 static LIVE::LiveGraph liveGraph;
 //低度数传送无关的节点
@@ -64,6 +68,7 @@ Result RegAlloc(F::Frame* f, AS::InstrList* il) {
     G::Graph<AS::Instr> *instrGraph=FG::AssemFlowGraph(il,f);
     //analysis liveness
     liveGraph=LIVE::Liveness(instrGraph);
+     printf("regalloc\n");
     Build();
     MakeWorklist();
     
@@ -102,6 +107,7 @@ Result RegAlloc(F::Frame* f, AS::InstrList* il) {
     }
   }
   while(true);
+
   RA::Result result;
   result.coloring=AssignRegisters(liveGraph);
   result.il=il;
@@ -161,7 +167,7 @@ static void Build(){
 
 static void AddEdge(G::Node<TEMP::Temp> *u,G::Node<TEMP::Temp> *v)
 {
-  if(u->Adj()->InNodeList(v)==false&&u!=v)
+  if(v->Adj()->InNodeList(u)==false&&u!=v)
   {
     if(!precolored(u)){
       (*(int *)degreeTable->Look(u))++;
@@ -486,6 +492,11 @@ static void AssignColors(){
         colorTable->Set(spilledNode,i);
       }
     }
+
+    for(RegNodeList *p=liveGraph.graph->Nodes();p;p=p->tail)
+    {
+      colorTable->Enter(p->head,colorTable->Look(GetAlias(p->head)));
+    }
 }
 
 static bool precolored(RegNode *node)
@@ -516,8 +527,7 @@ static void RewriteProgram(F::Frame *frame,AS::InstrList *instrlist)
   unSpillTemps=nullptr;
   AS::InstrList *il=instrlist,*l=nullptr,*last=nullptr,*next=nullptr,*new_instr=nullptr;
   int off; 
-  assert(0);
-  /*
+  char inst[MAX_INST_LEN];
   while(spilledNodes){
     RegNode *cur=spilledNodes->head;
     spilledNodes=spilledNodes->tail;
@@ -526,10 +536,64 @@ static void RewriteProgram(F::Frame *frame,AS::InstrList *instrlist)
     l=il;
     last=nullptr;
     while(l){
-     // TEMP::Temp *
-
+      next=l->tail;
+     //c的每次使用之前插入一条取数指令
+     if(tempUse(l->head)!=nullptr&&TEMP::inList(tempUse(l->head),c))
+     {
+       sprintf(inst,"movq %d(`s0), `d0",off);
+       new_instr=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(c,nullptr),new TEMP::TempList(F::R15(),nullptr)),l);
+       if(last){
+         last->tail=new_instr;
+       }
+       else{
+         il=new_instr;
+       }
+     }
+     last=l;
+     //c的每次定值之后插入一条存储指令
+     if(tempDef(l->head)!=nullptr&&TEMP::inList(tempDef(l->head),c))
+     {
+       sprintf(inst,"movq `s0, %d(`d0)",off);
+       new_instr=new AS::InstrList(new AS::MoveInstr(std::string(inst),new TEMP::TempList(F::R15(),nullptr),new TEMP::TempList(c,nullptr)),next);
+       l->tail=new_instr;  
+       last=l->tail;
+     }
+     l=next;
     }
-  }*/
+  }
+  fprintf(stdout,"hello\n");
+  *instrlist=*il;
+}
+
+
+/**********************************tool class************************************/
+static TEMP::TempList *tempUse(AS::Instr *instr)
+{
+  switch (instr->kind)
+  {
+  case AS::Instr::MOVE:
+    return ((AS::MoveInstr *)instr)->src;
+  case AS::Instr::OPER:
+    return ((AS::OperInstr*)instr)->src;
+  
+  default:
+    return nullptr;
+  }
+  return nullptr;
+}
+
+static TEMP::TempList *tempDef(AS::Instr *instr)
+{
+  switch (instr->kind)
+  {
+  case AS::Instr::MOVE:
+    return ((AS::MoveInstr *)instr)->dst;
+  case AS::Instr::OPER:
+    return ((AS::OperInstr*)instr)->dst;
+  default:
+    return nullptr;
+  }
+  return nullptr;
 }
 
 }  // namespace RA

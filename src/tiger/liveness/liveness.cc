@@ -52,11 +52,14 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
 
   //build in&out table
   do{
+    printf("again\n");
+    int n=0;
     changed=false;
     nodes=flowgraph->mynodes;
     //iteration
     for(nodes;nodes;nodes=nodes->tail)
     {
+      printf("%d\n",n);
       node=nodes->head;
       //in`[n]<-in[n]
       TEMP::TempList *in_prior=inTable->Look(node);
@@ -79,6 +82,19 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
     }
   }
   while(changed);
+  printf("active analysis ok\n");
+
+  nodes=flowgraph->mynodes;
+  for(nodes;nodes;nodes=nodes->tail)
+  {
+    node=nodes->head;
+    TEMP::TempList *intemps=inTable->Look(node);
+    for(intemps;intemps;intemps=intemps->tail)
+    {
+      fprintf(stdout,"%d\t",intemps->head->Int());
+    }
+    printf("\n");
+  }
   
   //build interference graph
 
@@ -135,12 +151,11 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
     {
        for(;def;def=def->tail)
        {
-          if(def->head==F::FP())
-            continue;
+          out=outTable->Look(node);
           G::Node<TEMP::Temp> *node1=tempTable->Look(def->head);
           for(out;out;out=out->tail)
           {
-            if(out->head==F::FP()||out->head==def->head)
+            if(out->head==def->head)
               continue;
             G::Node<TEMP::Temp> *node2=tempTable->Look(out->head);
             interferenceGraph->AddEdge(node1,node2);
@@ -150,7 +165,7 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
           //add move into movelist
           for(;use;use=use->tail)
           {
-            if(use->head==F::FP()||use->head==def->head)
+            if(use->head==def->head)
               continue;
             G::Node<TEMP::Temp> *node2=tempTable->Look(use->head);
             if(!inMoveList(node2,node1,moves))
@@ -162,12 +177,11 @@ LiveGraph Liveness(G::Graph<AS::Instr>* flowgraph) {
     }else{
       for(;def;def=def->tail)
       {
-        if(def->head==F::FP())
-          continue;
+        out=outTable->Look(node);
         G::Node<TEMP::Temp> *node1=tempTable->Look(def->head);
         for(out;out;out=out->tail)
         {
-          if(out->head==F::FP()||out->head==def->head)
+          if(out->head==def->head)
             continue;
           G::Node<TEMP::Temp> *node2=tempTable->Look(out->head);
           interferenceGraph->AddEdge(node1,node2);

@@ -82,13 +82,24 @@ void Map::DumpMap(FILE *out) {
 
 bool tempEqual(TEMP::TempList *t1,TEMP::TempList *t2)
 {
-  if(t1==nullptr&&t2==nullptr)
-    return true;
-  if(t1==nullptr||t2==nullptr)
-    return false;
-  if(t1->head==t2->head)
-    return tempEqual(t1->tail,t2->tail);
-  return false;
+  TEMP::TempList *p=t1;
+  for(p;p;p=p->tail)
+  {
+    if(!inList(t2,p->head))
+    {
+      return false;
+    }
+  }
+
+  p=t2;
+  for(p;p;p=p->tail)
+  {
+    if(!inList(t1,p->head))
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool inList(TEMP::TempList *t1,TEMP::Temp *t)
@@ -130,6 +141,16 @@ TempList *subTempList(TempList *t1,TempList *t2)
     }
   }
   return baseList;
+}
+
+void printList(TEMP::TempList *t)
+{
+  while(t)
+  {
+    printf("%d\t",t->head->Int());
+    t=t->tail;
+  }
+  printf("\n");
 }
 
 }  // namespace TEMP

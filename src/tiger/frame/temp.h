@@ -59,7 +59,7 @@ bool tempEqual(TEMP::TempList *t1,TEMP::TempList *t2);
 
 bool inList(TEMP::TempList *t1,TEMP::Temp *t);
 
-
+void printList(TEMP::TempList *t);
 class LabelList {
  public:
   Label *head;

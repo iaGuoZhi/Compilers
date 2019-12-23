@@ -33,6 +33,32 @@ static void emit(AS::Instr *inst)
     iLast=iList;
   }
 }
+/*
+static void calleeSave(bool saveOrRestore)
+{
+  static TEMP::TempList *saveTemp=nullptr;
+  TEMP::TempList *calleeSaveRegs=F::calleeSaveRegs();
+  std::string assm="movq `s0, `d0";
+  //save callee saved regs
+  if(saveOrRestore==true)
+  {
+    while(calleeSaveRegs)
+    {
+      TEMP::Temp *temp=TEMP::Temp::NewTemp();
+      emit(new AS::MoveInstr(assm,new TEMP::TempList(temp,nullptr),calleeSaveRegs));
+      calleeSaveRegs=calleeSaveRegs->tail;
+      saveTemp=new TEMP::TempList(temp,saveTemp);
+    }
+  }
+  else{
+    while(calleeSaveRegs)
+    {
+      emit(new AS::MoveInstr(assm,new TEMP::TempList(calleeSaveRegs->head,nullptr),new TEMP::TempList(saveTemp->head,nullptr)));
+      calleeSaveRegs=calleeSaveRegs->tail;
+      saveTemp=saveTemp->tail;
+    }
+  }
+}*/
 
 AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
   //init
@@ -45,7 +71,8 @@ AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
   func_label=f->label;
   
   //save callee saved registers
-  /*std::string assm="movq `s0, `d0";
+  std::string assm="movq `s0, `d0";
+  //calleeSave(true);
   TEMP::Temp *saveRBX=TEMP::Temp::NewTemp();
   TEMP::Temp *saveRBP=TEMP::Temp::NewTemp();
   TEMP::Temp *saveR12=TEMP::Temp::NewTemp();
@@ -57,7 +84,7 @@ AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
   emit(new AS::MoveInstr(assm,new TEMP::TempList(saveR12,nullptr),new TEMP::TempList(F::R12(),nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(saveR13,nullptr),new TEMP::TempList(F::R13(),nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(saveR14,nullptr),new TEMP::TempList(F::R14(),nullptr)));
-  emit(new AS::MoveInstr(assm,new TEMP::TempList(saveR15,nullptr),new TEMP::TempList(F::R15(),nullptr)));*/
+  emit(new AS::MoveInstr(assm,new TEMP::TempList(saveR15,nullptr),new TEMP::TempList(F::R15(),nullptr)));
  
   for(stmlist;stmlist;stmlist=stmlist->tail)
   {
@@ -65,14 +92,14 @@ AS::InstrList* Codegen(F::Frame* f, T::StmList* stmList) {
   }
 
   //restore callee saved registers
- /*  emit(new AS::MoveInstr(assm,new TEMP::TempList(F::RBX(),nullptr),new TEMP::TempList(saveRBX,nullptr)));
+  //calleeSave(false);
+  emit(new AS::MoveInstr(assm,new TEMP::TempList(F::RBX(),nullptr),new TEMP::TempList(saveRBX,nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(F::RBP(),nullptr),new TEMP::TempList(saveRBP,nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(F::R12(),nullptr),new TEMP::TempList(saveR12,nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(F::R13(),nullptr),new TEMP::TempList(saveR13,nullptr)));
   emit(new AS::MoveInstr(assm,new TEMP::TempList(F::R14(),nullptr),new TEMP::TempList(saveR14,nullptr)));
-  emit(new AS::MoveInstr(assm,new TEMP::TempList(F::R15(),nullptr),new TEMP::TempList(saveR15,nullptr))); */
+  emit(new AS::MoveInstr(assm,new TEMP::TempList(F::R15(),nullptr),new TEMP::TempList(saveR15,nullptr)));
 
-  //保护在tr中被用到的寄存器名字
   return iList;
 }
 
@@ -235,7 +262,7 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     TEMP::Temp *memtmp=munchExp(memexp->exp);
 
     assm="movq (`s0), `d0";
-    emit(new AS::MoveInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(memtmp,nullptr)));
+    emit(new AS::OperInstr(assm,new TEMP::TempList(temp,nullptr),new TEMP::TempList(memtmp,nullptr),new AS::Targets(nullptr)));
     return temp;
   }
   case T::Exp::BINOP:
@@ -278,7 +305,7 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     if(binopexp->op==T::DIV_OP)
     {
       emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(F::RAX(),nullptr),new TEMP::TempList(left,nullptr)));
-      emit(new AS::OperInstr("cltd",nullptr,nullptr, new AS::Targets(nullptr)));
+      emit(new AS::OperInstr("cltd",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr)), new TEMP::TempList(F::RAX(),nullptr),new AS::Targets(nullptr)));
       emit(new AS::OperInstr("idivq `s0",new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr)),
         new TEMP::TempList(right,new TEMP::TempList(F::RDX(),new TEMP::TempList(F::RAX(),nullptr))),new AS::Targets(nullptr)));
       emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RAX(),nullptr)));
@@ -327,14 +354,16 @@ static TEMP::Temp *munchExp(T::Exp *exp)
     sprintf(inst,"call %s",TEMP::LabelString(label).c_str());
     assm=std::string(inst);
     //将caller save regs 作为CALL指令的目标寄存器，以便保留在活跃分析中的def中，让regalloc能知道这些寄存器被使用
+    //caller saved regs
+
     emit(new AS::OperInstr(assm,F::callerSaveRegs(),nullptr,new AS::Targets(nullptr)));
     while(rspoffset>0)
     {
       rspoffset-=wordSize;
       emit(new AS::OperInstr("popq `d0",new TEMP::TempList(TEMP::Temp::NewTemp(),nullptr),nullptr,new AS::Targets(nullptr)));
     }
-    sprintf(inst,"leaq %s_framesize(%%rsp), %%r15",func_label->Name().c_str());
-    emit(new AS::OperInstr(std::string(inst),nullptr,nullptr,new AS::Targets(nullptr)));
+    sprintf(inst,"leaq %s_framesize(%%rsp),`d0 ",func_label->Name().c_str());
+    emit(new AS::OperInstr(std::string(inst),new TEMP::TempList(F::R15(),nullptr),nullptr,new AS::Targets(nullptr)));
     emit(new AS::MoveInstr("movq `s0, `d0",new TEMP::TempList(temp,nullptr),new TEMP::TempList(F::RAX(),nullptr)));
     return temp;
   }

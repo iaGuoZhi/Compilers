@@ -1,5 +1,5 @@
 #include "tiger/codegen/assem.h"
-
+#include<string>
 namespace {
 
 TEMP::Temp* nth_temp(TEMP::TempList* list, int i) {
@@ -88,6 +88,12 @@ void MoveInstr::Print(FILE* out, TEMP::Map* m) const {
           return;
       }
     }
+  }
+  //remove same reg move
+  if(this->dst!=nullptr&&this->src!=nullptr)
+  {
+    if(m->Look(this->dst->head)->compare(m->Look(this->src->head)->c_str())==0)
+      return;
   }
   std::string result = format(this->assem, this->dst, this->src, nullptr, m);
   fprintf(out, "%s\n", result.c_str());

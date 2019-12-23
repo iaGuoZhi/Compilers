@@ -15,6 +15,7 @@ TEMP::TempList* Def(G::Node<AS::Instr>* n) {
   }
 }
 
+
 TEMP::TempList* Use(G::Node<AS::Instr>* n) {
   // TODO: Put your codes here (lab6).
   switch (n->NodeInfo()->kind)
