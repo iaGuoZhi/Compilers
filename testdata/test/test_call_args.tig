@@ -1,8 +1,0 @@
-let 
-
-function test(a:int)=
-    printi(a)
-
-in 
-    test(2183)
-end
